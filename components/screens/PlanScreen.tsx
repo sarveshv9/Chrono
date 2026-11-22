@@ -316,152 +316,154 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
               {activePicker === 'clockStyle' && 'Clock Visualizer'}
             </Text>
 
-            {/* Session Count Options */}
-            {activePicker === 'sessionCount' &&
-              ([1, 2, 3, 4, 6, 8, 10, 12, 'unlimited'] as (number | 'unlimited')[]).map((val) => (
-                <TouchableOpacity
-                  key={String(val)}
-                  style={styles.pickerOption}
-                  onPress={() => {
-                    updatePlan({ sessionCount: val });
-                    setActivePicker(null);
-                  }}
-                >
-                  <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>
-                    {val === 'unlimited' ? 'Unlimited' : `${val} sessions`}
-                  </Text>
-                  {plan.sessionCount === val && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                </TouchableOpacity>
-              ))}
-
-            {/* Focus Length Presets */}
-            {activePicker === 'focusLength' &&
-              [15, 20, 25, 30, 45, 50, 60, 90, 120].map((mins) => (
-                <TouchableOpacity
-                  key={mins}
-                  style={styles.pickerOption}
-                  onPress={() => {
-                    updatePlan({ focusMinutes: mins });
-                    setActivePicker(null);
-                  }}
-                >
-                  <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{mins} min</Text>
-                  {plan.focusMinutes === mins && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                </TouchableOpacity>
-              ))}
-
-            {/* Short Break Length */}
-            {activePicker === 'shortBreak' &&
-              [3, 5, 8, 10, 15].map((mins) => (
-                <TouchableOpacity
-                  key={mins}
-                  style={styles.pickerOption}
-                  onPress={() => {
-                    updatePlan({ shortBreakMinutes: mins });
-                    setActivePicker(null);
-                  }}
-                >
-                  <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{mins} min</Text>
-                  {plan.shortBreakMinutes === mins && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                </TouchableOpacity>
-              ))}
-
-            {/* Long Break Length */}
-            {activePicker === 'longBreak' &&
-              [10, 15, 20, 25, 30, 45].map((mins) => (
-                <TouchableOpacity
-                  key={mins}
-                  style={styles.pickerOption}
-                  onPress={() => {
-                    updatePlan({ longBreakMinutes: mins });
-                    setActivePicker(null);
-                  }}
-                >
-                  <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{mins} min</Text>
-                  {plan.longBreakMinutes === mins && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                </TouchableOpacity>
-              ))}
-
-            {/* Long Break Every */}
-            {activePicker === 'longEvery' &&
-              (['never', 2, 3, 4, 5, 6, 8] as ('never' | number)[]).map((val) => (
-                <TouchableOpacity
-                  key={String(val)}
-                  style={styles.pickerOption}
-                  onPress={() => {
-                    updatePlan({ longBreakEvery: val });
-                    setActivePicker(null);
-                  }}
-                >
-                  <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>
-                    {val === 'never' ? 'Never' : `After ${val} sessions`}
-                  </Text>
-                  {plan.longBreakEvery === val && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                </TouchableOpacity>
-              ))}
-
-            {/* Break Count */}
-            {activePicker === 'breakCount' &&
-              [0, 1, 2, 3, 4, 5, 6, 8, 11].map((cnt) => {
-                const max = plan.sessionCount === 'unlimited' ? 12 : plan.sessionCount - 1;
-                if (cnt > max && plan.sessionCount !== 'unlimited') return null;
-                return (
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {/* Session Count Options */}
+              {activePicker === 'sessionCount' &&
+                ([1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 'unlimited'] as (number | 'unlimited')[]).map((val) => (
                   <TouchableOpacity
-                    key={cnt}
+                    key={String(val)}
                     style={styles.pickerOption}
                     onPress={() => {
-                      updatePlan({ breakCount: cnt });
+                      updatePlan({ sessionCount: val });
                       setActivePicker(null);
                     }}
                   >
-                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{cnt} breaks</Text>
-                    {plan.breakCount === cnt && <Text style={{ color: colors.accentFocus }}>✓</Text>}
+                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>
+                      {val === 'unlimited' ? 'Unlimited' : `${val} sessions`}
+                    </Text>
+                    {plan.sessionCount === val && <Text style={{ color: colors.accentFocus }}>✓</Text>}
                   </TouchableOpacity>
-                );
-              })}
+                ))}
 
-            {/* Theme */}
-            {activePicker === 'theme' &&
-              ([
-                { id: 'system', label: 'Follow System' },
-                { id: 'oled', label: 'OLED Obsidian' },
-                { id: 'papyrus', label: 'Warm Papyrus' },
-                { id: 'neon', label: 'Cyber Neon' },
-                { id: 'matcha', label: 'Matcha Calm' },
-              ] as { id: ThemePreset; label: string }[]).map((t) => (
-                <TouchableOpacity
-                  key={t.id}
-                  style={styles.pickerOption}
-                  onPress={() => {
-                    updatePlan({ themePreset: t.id });
-                    setActivePicker(null);
-                  }}
-                >
-                  <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{t.label}</Text>
-                  {plan.themePreset === t.id && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                </TouchableOpacity>
-              ))}
+              {/* Focus Length Presets */}
+              {activePicker === 'focusLength' &&
+                [1, 2, 3, 4, 5, 8, 10, 15, 20, 25, 30, 45, 50, 60, 90, 120].map((mins) => (
+                  <TouchableOpacity
+                    key={mins}
+                    style={styles.pickerOption}
+                    onPress={() => {
+                      updatePlan({ focusMinutes: mins });
+                      setActivePicker(null);
+                    }}
+                  >
+                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{mins} min</Text>
+                    {plan.focusMinutes === mins && <Text style={{ color: colors.accentFocus }}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
 
-            {/* Clock Style */}
-            {activePicker === 'clockStyle' &&
-              ([
-                { id: 'ring', label: 'Circular Ring' },
-                { id: 'sandglass', label: 'Digital Minimal' },
-                { id: 'flip', label: 'Retro Flip Clock' },
-                { id: 'breathing', label: 'Zen Breathing' },
-              ] as { id: ClockStyle; label: string }[]).map((c) => (
-                <TouchableOpacity
-                  key={c.id}
-                  style={styles.pickerOption}
-                  onPress={() => {
-                    updatePlan({ visualClockStyle: c.id });
-                    setActivePicker(null);
-                  }}
-                >
-                  <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{c.label}</Text>
-                  {plan.visualClockStyle === c.id && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                </TouchableOpacity>
-              ))}
+              {/* Short Break Length */}
+              {activePicker === 'shortBreak' &&
+                [1, 2, 3, 4, 5, 8, 10, 15, 20, 30].map((mins) => (
+                  <TouchableOpacity
+                    key={mins}
+                    style={styles.pickerOption}
+                    onPress={() => {
+                      updatePlan({ shortBreakMinutes: mins });
+                      setActivePicker(null);
+                    }}
+                  >
+                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{mins} min</Text>
+                    {plan.shortBreakMinutes === mins && <Text style={{ color: colors.accentFocus }}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+
+              {/* Long Break Length */}
+              {activePicker === 'longBreak' &&
+                [5, 10, 15, 20, 25, 30, 45].map((mins) => (
+                  <TouchableOpacity
+                    key={mins}
+                    style={styles.pickerOption}
+                    onPress={() => {
+                      updatePlan({ longBreakMinutes: mins });
+                      setActivePicker(null);
+                    }}
+                  >
+                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{mins} min</Text>
+                    {plan.longBreakMinutes === mins && <Text style={{ color: colors.accentFocus }}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+
+              {/* Long Break Every */}
+              {activePicker === 'longEvery' &&
+                (['never', 2, 3, 4, 5, 6, 8] as ('never' | number)[]).map((val) => (
+                  <TouchableOpacity
+                    key={String(val)}
+                    style={styles.pickerOption}
+                    onPress={() => {
+                      updatePlan({ longBreakEvery: val });
+                      setActivePicker(null);
+                    }}
+                  >
+                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>
+                      {val === 'never' ? 'Never' : `After ${val} sessions`}
+                    </Text>
+                    {plan.longBreakEvery === val && <Text style={{ color: colors.accentFocus }}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+
+              {/* Break Count */}
+              {activePicker === 'breakCount' &&
+                [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12].map((cnt) => {
+                  const max = plan.sessionCount === 'unlimited' ? 12 : plan.sessionCount;
+                  if (cnt > max && plan.sessionCount !== 'unlimited') return null;
+                  return (
+                    <TouchableOpacity
+                      key={cnt}
+                      style={styles.pickerOption}
+                      onPress={() => {
+                        updatePlan({ breakCount: cnt });
+                        setActivePicker(null);
+                      }}
+                    >
+                      <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{cnt} breaks</Text>
+                      {plan.breakCount === cnt && <Text style={{ color: colors.accentFocus }}>✓</Text>}
+                    </TouchableOpacity>
+                  );
+                })}
+
+              {/* Theme */}
+              {activePicker === 'theme' &&
+                ([
+                  { id: 'system', label: 'Follow System' },
+                  { id: 'oled', label: 'OLED Obsidian' },
+                  { id: 'papyrus', label: 'Warm Papyrus' },
+                  { id: 'neon', label: 'Cyber Neon' },
+                  { id: 'matcha', label: 'Matcha Calm' },
+                ] as { id: ThemePreset; label: string }[]).map((t) => (
+                  <TouchableOpacity
+                    key={t.id}
+                    style={styles.pickerOption}
+                    onPress={() => {
+                      updatePlan({ themePreset: t.id });
+                      setActivePicker(null);
+                    }}
+                  >
+                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{t.label}</Text>
+                    {plan.themePreset === t.id && <Text style={{ color: colors.accentFocus }}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+
+              {/* Clock Style */}
+              {activePicker === 'clockStyle' &&
+                ([
+                  { id: 'ring', label: 'Circular Ring' },
+                  { id: 'sandglass', label: 'Digital Minimal' },
+                  { id: 'flip', label: 'Retro Flip Clock' },
+                  { id: 'breathing', label: 'Zen Breathing' },
+                ] as { id: ClockStyle; label: string }[]).map((c) => (
+                  <TouchableOpacity
+                    key={c.id}
+                    style={styles.pickerOption}
+                    onPress={() => {
+                      updatePlan({ visualClockStyle: c.id });
+                      setActivePicker(null);
+                    }}
+                  >
+                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{c.label}</Text>
+                    {plan.visualClockStyle === c.id && <Text style={{ color: colors.accentFocus }}>✓</Text>}
+                  </TouchableOpacity>
+                ))}
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>

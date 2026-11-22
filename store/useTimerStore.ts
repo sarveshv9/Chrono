@@ -61,7 +61,7 @@ export function buildSequence(plan: PomodoroPlan): PomodoroBlock[] {
 
   const blocks: PomodoroBlock[] = [];
   const totalSessions = plan.sessionCount === 'unlimited' ? 12 : Math.max(1, plan.sessionCount);
-  const maxBreaks = Math.min(plan.breakCount, totalSessions - 1);
+  const maxBreaks = Math.min(plan.breakCount, totalSessions);
   const longEvery = plan.longBreakEvery === 'never' ? 0 : plan.longBreakEvery;
 
   for (let i = 1; i <= totalSessions; i++) {
@@ -71,7 +71,7 @@ export function buildSequence(plan: PomodoroPlan): PomodoroBlock[] {
       minutes: plan.focusMinutes,
     });
 
-    if (i < totalSessions && i <= maxBreaks) {
+    if (i <= maxBreaks) {
       const isLong = longEvery > 0 && i % longEvery === 0;
       blocks.push({
         id: `block_b_${i}`,
