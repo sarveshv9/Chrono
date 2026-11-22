@@ -201,6 +201,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
               remainingMs={remainingMs}
               totalDurationMs={totalDurationMs}
               colors={colors}
+              stageColor={stageAccentColor}
             />
           )}
           {plan.visualClockStyle === 'sandglass' && (
@@ -208,13 +209,18 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
               remainingMs={remainingMs}
               totalDurationMs={totalDurationMs}
               colors={colors}
+              stageColor={stageAccentColor}
             />
           )}
           {plan.visualClockStyle === 'flip' && (
             <FlipClock remainingMs={remainingMs} colors={colors} />
           )}
           {plan.visualClockStyle === 'breathing' && (
-            <ZenBreathingClock remainingMs={remainingMs} colors={colors} />
+            <ZenBreathingClock
+              remainingMs={remainingMs}
+              colors={colors}
+              stageColor={stageAccentColor}
+            />
           )}
         </TouchableOpacity>
 

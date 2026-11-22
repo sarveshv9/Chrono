@@ -6,12 +6,14 @@ interface DigitalClockProps {
   remainingMs: number;
   totalDurationMs: number;
   colors: ThemeColors;
+  stageColor?: string;
 }
 
 export const DigitalClock: React.FC<DigitalClockProps> = ({
   remainingMs,
   totalDurationMs,
   colors,
+  stageColor,
 }) => {
   const totalSeconds = Math.ceil(remainingMs / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -19,6 +21,7 @@ export const DigitalClock: React.FC<DigitalClockProps> = ({
   const timeFormatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
   const progressPercent = totalDurationMs > 0 ? (remainingMs / totalDurationMs) * 100 : 0;
+  const barColor = stageColor || colors.progressFill;
 
   return (
     <View style={styles.container}>
@@ -31,7 +34,7 @@ export const DigitalClock: React.FC<DigitalClockProps> = ({
         <View
           style={[
             styles.fillBar,
-            { backgroundColor: colors.progressFill, width: `${progressPercent}%` },
+            { backgroundColor: barColor, width: `${progressPercent}%` },
           ]}
         />
       </View>

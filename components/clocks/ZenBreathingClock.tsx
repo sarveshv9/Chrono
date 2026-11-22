@@ -5,13 +5,16 @@ import { ThemeColors } from '@/theme/tokens';
 interface ZenBreathingClockProps {
   remainingMs: number;
   colors: ThemeColors;
+  stageColor?: string;
 }
 
 export const ZenBreathingClock: React.FC<ZenBreathingClockProps> = ({
   remainingMs,
   colors,
+  stageColor,
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
+  const activeColor = stageColor || colors.accentActive;
 
   useEffect(() => {
     const animation = Animated.loop(
@@ -45,7 +48,7 @@ export const ZenBreathingClock: React.FC<ZenBreathingClockProps> = ({
           style={[
             styles.breathingHalo,
             {
-              borderColor: colors.accentActive,
+              borderColor: activeColor,
             },
           ]}
         />
@@ -53,7 +56,7 @@ export const ZenBreathingClock: React.FC<ZenBreathingClockProps> = ({
           style={[
             styles.breathingCore,
             {
-              backgroundColor: colors.accentActive + '18',
+              backgroundColor: activeColor + '18',
             },
           ]}
         />

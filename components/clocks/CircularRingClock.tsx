@@ -7,6 +7,7 @@ interface CircularRingClockProps {
   remainingMs: number;
   totalDurationMs: number;
   colors: ThemeColors;
+  stageColor?: string;
   size?: number;
   strokeWidth?: number;
 }
@@ -15,6 +16,7 @@ export const CircularRingClock: React.FC<CircularRingClockProps> = ({
   remainingMs,
   totalDurationMs,
   colors,
+  stageColor,
   size = 280,
   strokeWidth = 6.5,
 }) => {
@@ -22,6 +24,7 @@ export const CircularRingClock: React.FC<CircularRingClockProps> = ({
   const circumference = 2 * Math.PI * radius;
   const progress = totalDurationMs > 0 ? Math.max(0, remainingMs / totalDurationMs) : 0;
   const strokeDashoffset = circumference * (1 - progress);
+  const ringColor = stageColor || colors.progressFill;
 
   const totalSeconds = Math.ceil(remainingMs / 1000);
   const minutes = Math.floor(totalSeconds / 60);
@@ -46,7 +49,7 @@ export const CircularRingClock: React.FC<CircularRingClockProps> = ({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={colors.progressFill}
+          stroke={ringColor}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={strokeDashoffset}
