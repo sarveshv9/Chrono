@@ -176,7 +176,7 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
           <Text style={[styles.backIcon, { color: colors.accentFocus }]}>‹</Text>
           <Text style={[styles.backText, { color: colors.accentFocus }]}>Timer</Text>
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Plan</Text>
+        <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Settings</Text>
         <View style={styles.headerRightPlaceholder} />
       </View>
 

@@ -11,12 +11,20 @@ import {
 } from 'react-native';
 import { useTimerStore } from '@/store/useTimerStore';
 import { ThemeColors } from '@/theme/tokens';
+import Svg, { Path, Circle } from 'react-native-svg';
 import { CircularRingClock } from '@/components/clocks/CircularRingClock';
 import { DigitalClock } from '@/components/clocks/DigitalClock';
 import { FlipClock } from '@/components/clocks/FlipClock';
 import { ZenBreathingClock } from '@/components/clocks/ZenBreathingClock';
 import { ConfirmActionModal } from '@/components/modals/ConfirmActionModal';
 import { HapticService } from '@/services/hapticsService';
+
+const SettingsIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = '#FFFFFF' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Circle cx="12" cy="12" r="3" />
+    <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </Svg>
+);
 
 interface TimerScreenProps {
   colors: ThemeColors;
@@ -149,19 +157,19 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Rail: Brand & Plan capsule */}
+      {/* Top Header Rail: Brand & Settings Icon */}
       <View style={styles.header}>
         <Text style={[styles.brandTitle, { color: colors.textMuted }]}>CHRONOCRAFT</Text>
         <TouchableOpacity
-          style={[styles.planBtn, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.surfaceBorder }]}
+          style={[styles.settingsBtn, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.surfaceBorder }]}
           onPress={() => {
             HapticService.buttonPress();
             setCurrentScreen('plan');
           }}
-          accessibilityLabel="Open Plan settings"
+          accessibilityLabel="Open settings"
           accessibilityRole="button"
         >
-          <Text style={[styles.planBtnText, { color: colors.textPrimary }]}>Plan ›</Text>
+          <SettingsIcon size={18} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -410,18 +418,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 2,
   },
-  planBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 18,
+  settingsBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  planBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    letterSpacing: 0.2,
   },
   clockSection: {
     flex: 1,
