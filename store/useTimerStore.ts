@@ -3,9 +3,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ThemePreset } from '@/theme/tokens';
 import { HapticService } from '@/services/hapticsService';
 import { NotificationService } from '@/services/notificationService';
+import { AudioFeedbackService } from '@/services/audioFeedbackService';
 
 export type BlockType = 'focus' | 'short' | 'long';
-export type TimerStatus = 'idle' | 'running' | 'paused';
+export type TimerStatus = 'idle' | 'running' | 'paused' | 'completed';
 export type ClockStyle = 'ring' | 'flip' | 'sandglass' | 'breathing';
 
 export interface PomodoroBlock {
@@ -308,11 +309,12 @@ export const useTimerStore = create<TimerState>((set, get) => {
     },
 
     reset: () => {
-      const { activeBlocks, currentBlockIndex } = get();
-      const currentBlock = activeBlocks[currentBlockIndex] || activeBlocks[0];
-      const durationMs = (currentBlock?.minutes || 25) * 60 * 1000;
+      const { activeBlocks } = get();
+      const firstBlock = activeBlocks[0];
+      const durationMs = (firstBlock?.minutes || 25) * 60 * 1000;
 
       set({
+        currentBlockIndex: 0,
         status: 'idle',
         targetEndTime: null,
         remainingMs: durationMs,
@@ -330,8 +332,24 @@ export const useTimerStore = create<TimerState>((set, get) => {
 
       let nextIndex = currentBlockIndex + 1;
       if (nextIndex >= activeBlocks.length) {
-        // Cycle finished, loop back to start
-        nextIndex = 0;
+        // Entire cycle is finished!
+        const focusCount = activeBlocks.filter((b) => b.type === 'focus').length;
+        HapticService.celebration();
+        AudioFeedbackService.playCycleCompleteSound();
+
+        if (plan.notifyOnEnd) {
+          NotificationService.showCycleCompletionAlarm(focusCount);
+        }
+
+        set({
+          status: 'completed',
+          targetEndTime: null,
+          remainingMs: 0,
+          totalDurationMs: 0,
+        });
+
+        persist();
+        return;
       }
 
       const nextBlock = activeBlocks[nextIndex] || activeBlocks[0];
@@ -346,6 +364,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
       });
 
       HapticService.stageComplete();
+      AudioFeedbackService.playStageCompleteSound();
       persist();
 
       if (plan.autoStartNext) {
@@ -362,33 +381,55 @@ export const useTimerStore = create<TimerState>((set, get) => {
 
       if (remainingMs <= 0) {
         NotificationService.cancelOngoing();
-        HapticService.stageComplete();
 
         const currentBlock = activeBlocks[currentBlockIndex];
         const nextIndex = currentBlockIndex + 1;
         const isCycleFinished = nextIndex >= activeBlocks.length;
-        const resolvedNextIndex = isCycleFinished ? 0 : nextIndex;
-        const nextBlock = activeBlocks[resolvedNextIndex] || activeBlocks[0];
-        const durationMs = (nextBlock?.minutes || 25) * 60 * 1000;
 
-        if (plan.notifyOnEnd) {
-          const currentLabel = currentBlock?.type === 'focus' ? 'Focus Session' : 'Break';
-          const nextLabel = nextBlock?.type === 'focus' ? 'Focus Session' : 'Break';
-          NotificationService.showCompletionAlarm(currentLabel, nextLabel);
-        }
+        if (isCycleFinished) {
+          // Entire cycle is finished!
+          const focusCount = activeBlocks.filter((b) => b.type === 'focus').length;
+          HapticService.celebration();
+          AudioFeedbackService.playCycleCompleteSound();
 
-        set({
-          currentBlockIndex: resolvedNextIndex,
-          status: 'idle',
-          targetEndTime: null,
-          remainingMs: durationMs,
-          totalDurationMs: durationMs,
-        });
+          if (plan.notifyOnEnd) {
+            NotificationService.showCycleCompletionAlarm(focusCount);
+          }
 
-        persist();
+          set({
+            status: 'completed',
+            targetEndTime: null,
+            remainingMs: 0,
+            totalDurationMs: 0,
+          });
 
-        if (plan.autoStartNext && !isCycleFinished) {
-          setTimeout(() => get().start(), 600);
+          persist();
+        } else {
+          HapticService.stageComplete();
+          AudioFeedbackService.playStageCompleteSound();
+
+          const nextBlock = activeBlocks[nextIndex] || activeBlocks[0];
+          const durationMs = (nextBlock?.minutes || 25) * 60 * 1000;
+
+          if (plan.notifyOnEnd) {
+            const currentLabel = currentBlock?.type === 'focus' ? 'Focus Session' : 'Break';
+            const nextLabel = nextBlock?.type === 'focus' ? 'Focus Session' : 'Break';
+            NotificationService.showCompletionAlarm(currentLabel, nextLabel);
+          }
+
+          set({
+            currentBlockIndex: nextIndex,
+            status: 'idle',
+            targetEndTime: null,
+            remainingMs: durationMs,
+            totalDurationMs: durationMs,
+          });
+
+          persist();
+
+          if (plan.autoStartNext) {
+            setTimeout(() => get().start(), 600);
+          }
         }
       } else {
         set({ remainingMs });

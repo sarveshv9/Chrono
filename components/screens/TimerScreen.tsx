@@ -70,6 +70,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
 
   const isRunning = status === 'running';
   const isPaused = status === 'paused';
+  const isCompleted = status === 'completed';
 
   // Calculate session number in focus blocks
   const focusBlocks = activeBlocks.filter((b) => b.type === 'focus');
@@ -80,7 +81,9 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
   const totalFocusCount = plan.sessionCount === 'unlimited' ? '∞' : `${focusBlocks.length}`;
 
   const getStageHeader = () => {
-    if (currentBlock.type === 'focus') {
+    if (isCompleted) {
+      return 'Cycle Completed';
+    } else if (currentBlock.type === 'focus') {
       return `Session ${currentFocusIndex || 1} of ${totalFocusCount}`;
     } else if (currentBlock.type === 'long') {
       return 'Long Break';
@@ -90,7 +93,9 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
   };
 
   const stageAccentColor =
-    currentBlock.type === 'focus'
+    isCompleted
+      ? colors.accentShortBreak
+      : currentBlock.type === 'focus'
       ? colors.accentFocus
       : currentBlock.type === 'long'
       ? colors.accentLongBreak
@@ -204,50 +209,69 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
           </Text>
         </View>
 
-        <TouchableOpacity
-          activeOpacity={isRunning ? 1 : 0.75}
-          onPress={() => {
-            if (!isRunning) {
-              HapticService.buttonPress();
-              setDurationInputVal(String(currentBlock.minutes));
-              setDurationModalOpen(true);
-            }
-          }}
-          style={styles.clockWrapper}
-        >
-          {plan.visualClockStyle === 'ring' && (
-            <CircularRingClock
-              remainingMs={remainingMs}
-              totalDurationMs={totalDurationMs}
-              colors={colors}
-              stageColor={stageAccentColor}
-            />
-          )}
-          {plan.visualClockStyle === 'sandglass' && (
-            <DigitalClock
-              remainingMs={remainingMs}
-              totalDurationMs={totalDurationMs}
-              colors={colors}
-              stageColor={stageAccentColor}
-            />
-          )}
-          {plan.visualClockStyle === 'flip' && (
-            <FlipClock remainingMs={remainingMs} colors={colors} />
-          )}
-          {plan.visualClockStyle === 'breathing' && (
-            <ZenBreathingClock
-              remainingMs={remainingMs}
-              colors={colors}
-              stageColor={stageAccentColor}
-            />
-          )}
-        </TouchableOpacity>
+        {isCompleted ? (
+          <View style={styles.completedCard}>
+            <View style={[styles.trophyIconCircle, { backgroundColor: colors.accentShortBreak + '20', borderColor: colors.accentShortBreak }]}>
+              <Text style={{ fontSize: 44 }}>🏆</Text>
+            </View>
+            <Text style={[styles.completedHeading, { color: colors.textPrimary }]}>
+              Cycle Completed!
+            </Text>
+            <Text style={[styles.completedSubtext, { color: colors.textSecondary }]}>
+              All {focusBlocks.length} focus sessions and breaks are done.
+            </Text>
+            <View style={[styles.completedSummaryPill, { backgroundColor: colors.surfaceElevated, borderColor: colors.surfaceBorder }]}>
+              <Text style={[styles.completedSummaryText, { color: colors.accentShortBreak }]}>
+                ✓ {plan.sessionCount === 'unlimited' ? 'Loop Finished' : `${plan.focusMinutes * focusBlocks.length}m focused`}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <TouchableOpacity
+            activeOpacity={isRunning ? 1 : 0.75}
+            onPress={() => {
+              if (!isRunning) {
+                HapticService.buttonPress();
+                setDurationInputVal(String(currentBlock.minutes));
+                setDurationModalOpen(true);
+              }
+            }}
+            style={styles.clockWrapper}
+          >
+            {plan.visualClockStyle === 'ring' && (
+              <CircularRingClock
+                remainingMs={remainingMs}
+                totalDurationMs={totalDurationMs}
+                colors={colors}
+                stageColor={stageAccentColor}
+              />
+            )}
+            {plan.visualClockStyle === 'sandglass' && (
+              <DigitalClock
+                remainingMs={remainingMs}
+                totalDurationMs={totalDurationMs}
+                colors={colors}
+                stageColor={stageAccentColor}
+              />
+            )}
+            {plan.visualClockStyle === 'flip' && (
+              <FlipClock remainingMs={remainingMs} colors={colors} />
+            )}
+            {plan.visualClockStyle === 'breathing' && (
+              <ZenBreathingClock
+                remainingMs={remainingMs}
+                colors={colors}
+                stageColor={stageAccentColor}
+              />
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Plan Progress Oblong Indicators */}
         {renderProgressDots()}
 
         {/* Duration Badge (when idle) */}
-        {!isRunning && !isPaused && (
+        {!isRunning && !isPaused && !isCompleted && (
           <TouchableOpacity
             style={[styles.quickDurationBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.surfaceBorder }]}
             onPress={() => {
@@ -277,12 +301,15 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
           <Text style={[styles.discBtnIcon, { color: colors.textSecondary }]}>↺</Text>
         </TouchableOpacity>
 
-        {/* Hero Capsule Start/Pause Button */}
+        {/* Hero Capsule Start/Pause/New Cycle Button */}
         <TouchableOpacity
           style={[styles.heroPillBtn, { backgroundColor: stageAccentColor }]}
           onPress={() => {
             HapticService.buttonPress();
-            if (isRunning) {
+            if (isCompleted) {
+              reset();
+              setTimeout(() => start(), 100);
+            } else if (isRunning) {
               pause();
             } else if (isPaused) {
               resume();
@@ -292,10 +319,10 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
           }}
           activeOpacity={0.88}
           accessibilityRole="button"
-          accessibilityLabel={isRunning ? 'Pause timer' : isPaused ? 'Resume timer' : 'Start timer'}
+          accessibilityLabel={isCompleted ? 'Start new cycle' : isRunning ? 'Pause timer' : isPaused ? 'Resume timer' : 'Start timer'}
         >
           <Text style={styles.heroPillText}>
-            {isRunning ? 'PAUSE' : isPaused ? 'RESUME' : 'START'}
+            {isCompleted ? 'NEW CYCLE' : isRunning ? 'PAUSE' : isPaused ? 'RESUME' : 'START'}
           </Text>
         </TouchableOpacity>
 
@@ -468,6 +495,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
+  },
+  completedCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 20,
+    width: '100%',
+  },
+  trophyIconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  completedHeading: {
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginBottom: 8,
+  },
+  completedSubtext: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  completedSummaryPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  completedSummaryText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
   clockWrapper: {
     alignItems: 'center',

@@ -30,6 +30,18 @@ export class HapticService {
     } catch {}
   }
 
+  static celebration() {
+    try {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setTimeout(() => {
+        try { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy); } catch {}
+      }, 200);
+      setTimeout(() => {
+        try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } catch {}
+      }, 450);
+    } catch {}
+  }
+
   static extendTime() {
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);

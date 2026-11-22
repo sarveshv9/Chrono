@@ -36,6 +36,14 @@ export class NotificationService {
         sound: 'default',
         vibration: true,
       });
+
+      await notifee.createChannel({
+        id: 'pomodoro_cycle_complete',
+        name: 'Full Cycle Celebration',
+        importance: AndroidImportance.HIGH,
+        sound: 'alarm',
+        vibration: true,
+      });
     } catch (err) {
       console.warn('Failed to init Notifee channels:', err);
     }
@@ -109,6 +117,31 @@ export class NotificationService {
       });
     } catch (err) {
       console.warn('Failed to display completion alarm:', err);
+    }
+  }
+
+  static async showCycleCompletionAlarm(sessionCount: number) {
+    if (!notifee || Platform.OS !== 'android') return;
+
+    try {
+      await this.cancelOngoing();
+
+      await notifee.displayNotification({
+        id: 'pomodoro_cycle_completed',
+        title: '🏆 Cycle Completed! Outstanding Work!',
+        body: `You finished all ${sessionCount} focus sessions and breaks. Outstanding focus!`,
+        android: {
+          channelId: 'pomodoro_cycle_complete',
+          importance: AndroidImportance.HIGH,
+          sound: 'alarm',
+          vibrationPattern: [0, 400, 200, 400, 200, 800],
+          pressAction: {
+            id: 'default',
+          },
+        },
+      });
+    } catch (err) {
+      console.warn('Failed to display cycle completion alarm:', err);
     }
   }
 }
