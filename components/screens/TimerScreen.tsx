@@ -308,7 +308,6 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
             HapticService.buttonPress();
             if (isCompleted) {
               reset();
-              setTimeout(() => start(), 100);
             } else if (isRunning) {
               pause();
             } else if (isPaused) {
@@ -319,7 +318,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
           }}
           activeOpacity={0.88}
           accessibilityRole="button"
-          accessibilityLabel={isCompleted ? 'Start new cycle' : isRunning ? 'Pause timer' : isPaused ? 'Resume timer' : 'Start timer'}
+          accessibilityLabel={isCompleted ? 'Reset and start a new cycle' : isRunning ? 'Pause timer' : isPaused ? 'Resume timer' : 'Start timer'}
         >
           <Text style={styles.heroPillText}>
             {isCompleted ? 'NEW CYCLE' : isRunning ? 'PAUSE' : isPaused ? 'RESUME' : 'START'}
