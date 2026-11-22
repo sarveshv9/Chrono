@@ -60,15 +60,15 @@ export function buildSequence(plan: PomodoroPlan): PomodoroBlock[] {
   }
 
   const blocks: PomodoroBlock[] = [];
-  const totalSessions = plan.sessionCount === 'unlimited' ? 12 : Math.max(1, plan.sessionCount);
-  const maxBreaks = Math.min(plan.breakCount, totalSessions);
+  const totalSessions = plan.sessionCount === 'unlimited' ? 50 : Math.max(1, plan.sessionCount);
+  const maxBreaks = plan.sessionCount === 'unlimited' ? plan.breakCount : Math.min(plan.breakCount, totalSessions);
   const longEvery = plan.longBreakEvery === 'never' ? 0 : plan.longBreakEvery;
 
   for (let i = 1; i <= totalSessions; i++) {
     blocks.push({
       id: `block_f_${i}`,
       type: 'focus',
-      minutes: plan.focusMinutes,
+      minutes: Math.max(1, plan.focusMinutes),
     });
 
     if (i <= maxBreaks) {
@@ -76,7 +76,7 @@ export function buildSequence(plan: PomodoroPlan): PomodoroBlock[] {
       blocks.push({
         id: `block_b_${i}`,
         type: isLong ? 'long' : 'short',
-        minutes: isLong ? plan.longBreakMinutes : plan.shortBreakMinutes,
+        minutes: Math.max(1, isLong ? plan.longBreakMinutes : plan.shortBreakMinutes),
       });
     }
   }
@@ -116,6 +116,7 @@ export interface TimerState {
 
   // Plan Updates
   updatePlan: (newPlan: Partial<PomodoroPlan>) => void;
+  setCurrentBlockMinutes: (minutes: number) => void;
   resetPlanToDefaults: () => void;
   loadPersistedState: () => Promise<void>;
 }
@@ -195,9 +196,9 @@ export const useTimerStore = create<TimerState>((set, get) => {
       const current = get();
       const updatedPlan: PomodoroPlan = { ...current.plan, ...newPlanPartial };
 
-      // Validate breaks count <= sessions count
+      // Validate breaks count <= sessions count if sessions is limited
       if (updatedPlan.sessionCount !== 'unlimited') {
-        updatedPlan.breakCount = Math.min(updatedPlan.breakCount, Math.max(0, updatedPlan.sessionCount - 1));
+        updatedPlan.breakCount = Math.min(Math.max(0, updatedPlan.breakCount), updatedPlan.sessionCount);
       }
 
       const newBlocks = buildSequence(updatedPlan);
@@ -223,6 +224,31 @@ export const useTimerStore = create<TimerState>((set, get) => {
       }
 
       persist();
+    },
+
+    setCurrentBlockMinutes: (minutes: number) => {
+      const current = get();
+      const validMinutes = Math.max(1, minutes);
+      const currentBlock = current.activeBlocks[current.currentBlockIndex] || current.activeBlocks[0];
+
+      if (current.plan.customSequenceEnabled) {
+        const updatedSequence = [...current.plan.customSequence];
+        if (updatedSequence[current.currentBlockIndex]) {
+          updatedSequence[current.currentBlockIndex] = {
+            ...updatedSequence[current.currentBlockIndex],
+            minutes: validMinutes,
+          };
+          current.updatePlan({ customSequence: updatedSequence });
+        }
+      } else {
+        if (currentBlock?.type === 'focus') {
+          current.updatePlan({ focusMinutes: validMinutes });
+        } else if (currentBlock?.type === 'long') {
+          current.updatePlan({ longBreakMinutes: validMinutes });
+        } else {
+          current.updatePlan({ shortBreakMinutes: validMinutes });
+        }
+      }
     },
 
     resetPlanToDefaults: () => {

@@ -7,6 +7,9 @@ import {
   TouchableOpacity,
   Switch,
   Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useTimerStore, computeTotalPlanMinutes, PomodoroBlock, BlockType, ClockStyle } from '@/store/useTimerStore';
 import { ThemeColors, ThemePreset } from '@/theme/tokens';
@@ -24,6 +27,7 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
   const setCurrentScreen = useTimerStore((state) => state.setCurrentScreen);
 
   const [activePicker, setActivePicker] = useState<string | null>(null);
+  const [customInputVal, setCustomInputVal] = useState<string>('');
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   // Live total time calculation
@@ -32,6 +36,59 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
   const remainingMins = totalMinutes % 60;
   const formattedTotalTime =
     totalHours > 0 ? `${totalHours}h ${remainingMins}m` : `${remainingMins}m`;
+
+  const openPicker = (key: string, initialVal: number | string) => {
+    HapticService.buttonPress();
+    setActivePicker(key);
+    setCustomInputVal(String(initialVal));
+  };
+
+  const handleApplyCustomInput = () => {
+    HapticService.buttonPress();
+    const num = parseInt(customInputVal.trim(), 10);
+    if (!activePicker) return;
+
+    if (activePicker === 'sessionCount') {
+      if (customInputVal.toLowerCase() === 'unlimited') {
+        updatePlan({ sessionCount: 'unlimited' });
+      } else if (!isNaN(num) && num > 0) {
+        updatePlan({ sessionCount: num });
+      }
+    } else if (activePicker === 'focusLength') {
+      if (!isNaN(num) && num > 0) {
+        updatePlan({ focusMinutes: num });
+      }
+    } else if (activePicker === 'shortBreak') {
+      if (!isNaN(num) && num > 0) {
+        updatePlan({ shortBreakMinutes: num });
+      }
+    } else if (activePicker === 'longBreak') {
+      if (!isNaN(num) && num > 0) {
+        updatePlan({ longBreakMinutes: num });
+      }
+    } else if (activePicker === 'longEvery') {
+      if (customInputVal.toLowerCase() === 'never') {
+        updatePlan({ longBreakEvery: 'never' });
+      } else if (!isNaN(num) && num > 0) {
+        updatePlan({ longBreakEvery: num });
+      }
+    } else if (activePicker === 'breakCount') {
+      if (!isNaN(num) && num >= 0) {
+        updatePlan({ breakCount: num });
+      }
+    } else if (activePicker.startsWith('customBlock_')) {
+      const idx = parseInt(activePicker.replace('customBlock_', ''), 10);
+      if (!isNaN(idx) && !isNaN(num) && num > 0) {
+        const updated = [...plan.customSequence];
+        if (updated[idx]) {
+          updated[idx] = { ...updated[idx], minutes: num };
+          updatePlan({ customSequence: updated });
+        }
+      }
+    }
+
+    setActivePicker(null);
+  };
 
   // Custom Sequence Actions
   const handleAddCustomBlock = (type: BlockType) => {
@@ -130,13 +187,13 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
           {renderGroupRow(
             'Number of focus sessions',
             plan.sessionCount === 'unlimited' ? 'Unlimited' : `${plan.sessionCount}`,
-            () => setActivePicker('sessionCount')
+            () => openPicker('sessionCount', plan.sessionCount)
           )}
           <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
           {renderGroupRow(
             'Focus length',
             `${plan.focusMinutes} min`,
-            () => setActivePicker('focusLength')
+            () => openPicker('focusLength', plan.focusMinutes)
           )}
         </View>
 
@@ -146,25 +203,25 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
           {renderGroupRow(
             'Short break length',
             `${plan.shortBreakMinutes} min`,
-            () => setActivePicker('shortBreak')
+            () => openPicker('shortBreak', plan.shortBreakMinutes)
           )}
           <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
           {renderGroupRow(
             'Long break length',
             `${plan.longBreakMinutes} min`,
-            () => setActivePicker('longBreak')
+            () => openPicker('longBreak', plan.longBreakMinutes)
           )}
           <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
           {renderGroupRow(
             'Long break after',
             plan.longBreakEvery === 'never' ? 'Never' : `${plan.longBreakEvery} sessions`,
-            () => setActivePicker('longEvery')
+            () => openPicker('longEvery', plan.longBreakEvery)
           )}
           <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
           {renderGroupRow(
             'Number of breaks',
             `${plan.breakCount}`,
-            () => setActivePicker('breakCount')
+            () => openPicker('breakCount', plan.breakCount)
           )}
         </View>
 
@@ -204,9 +261,16 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
                     <Text style={[styles.blockTitle, { color: colors.textPrimary }]}>
                       {block.type === 'focus' ? 'Focus' : block.type === 'long' ? 'Long Break' : 'Short Break'}
                     </Text>
-                    <Text style={[styles.blockDuration, { color: colors.accentFocus }]}>
-                      {block.minutes}m
-                    </Text>
+                    <TouchableOpacity
+                      style={[styles.blockDurationPill, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
+                      onPress={() => openPicker(`customBlock_${idx}`, block.minutes)}
+                      accessibilityLabel={`Change duration for block ${idx + 1}, currently ${block.minutes} minutes`}
+                      accessibilityRole="button"
+                    >
+                      <Text style={[styles.blockDuration, { color: colors.accentFocus }]}>
+                        {block.minutes}m ✎
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
                   <View style={styles.blockControls}>
@@ -303,127 +367,33 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
 
       {/* Picker Modal */}
       <Modal visible={activePicker !== null} transparent animationType="fade" onRequestClose={() => setActivePicker(null)}>
-        <TouchableOpacity style={styles.modalBackdrop} activeOpacity={1} onPress={() => setActivePicker(null)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setActivePicker(null)} />
           <View style={[styles.pickerDialog, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-            <Text style={[styles.pickerTitle, { color: colors.textPrimary }]}>
-              {activePicker === 'sessionCount' && 'Number of Sessions'}
-              {activePicker === 'focusLength' && 'Focus Length'}
-              {activePicker === 'shortBreak' && 'Short Break Length'}
-              {activePicker === 'longBreak' && 'Long Break Length'}
-              {activePicker === 'longEvery' && 'Long Break Frequency'}
-              {activePicker === 'breakCount' && 'Total Breaks'}
-              {activePicker === 'theme' && 'Theme'}
-              {activePicker === 'clockStyle' && 'Clock Visualizer'}
-            </Text>
+            <View style={styles.pickerHeaderRow}>
+              <Text style={[styles.pickerTitle, { color: colors.textPrimary }]}>
+                {activePicker === 'sessionCount' && 'Number of Sessions'}
+                {activePicker === 'focusLength' && 'Focus Length'}
+                {activePicker === 'shortBreak' && 'Short Break Length'}
+                {activePicker === 'longBreak' && 'Long Break Length'}
+                {activePicker === 'longEvery' && 'Long Break Frequency'}
+                {activePicker === 'breakCount' && 'Total Breaks'}
+                {activePicker?.startsWith('customBlock_') && 'Block Duration'}
+                {activePicker === 'theme' && 'Theme'}
+                {activePicker === 'clockStyle' && 'Clock Visualizer'}
+              </Text>
+              <TouchableOpacity onPress={() => setActivePicker(null)} style={styles.pickerCloseBtn}>
+                <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '700' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
 
-            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
-              {/* Session Count Options */}
-              {activePicker === 'sessionCount' &&
-                ([1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 'unlimited'] as (number | 'unlimited')[]).map((val) => (
-                  <TouchableOpacity
-                    key={String(val)}
-                    style={styles.pickerOption}
-                    onPress={() => {
-                      updatePlan({ sessionCount: val });
-                      setActivePicker(null);
-                    }}
-                  >
-                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>
-                      {val === 'unlimited' ? 'Unlimited' : `${val} sessions`}
-                    </Text>
-                    {plan.sessionCount === val && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                  </TouchableOpacity>
-                ))}
-
-              {/* Focus Length Presets */}
-              {activePicker === 'focusLength' &&
-                [1, 2, 3, 4, 5, 8, 10, 15, 20, 25, 30, 45, 50, 60, 90, 120].map((mins) => (
-                  <TouchableOpacity
-                    key={mins}
-                    style={styles.pickerOption}
-                    onPress={() => {
-                      updatePlan({ focusMinutes: mins });
-                      setActivePicker(null);
-                    }}
-                  >
-                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{mins} min</Text>
-                    {plan.focusMinutes === mins && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                  </TouchableOpacity>
-                ))}
-
-              {/* Short Break Length */}
-              {activePicker === 'shortBreak' &&
-                [1, 2, 3, 4, 5, 8, 10, 15, 20, 30].map((mins) => (
-                  <TouchableOpacity
-                    key={mins}
-                    style={styles.pickerOption}
-                    onPress={() => {
-                      updatePlan({ shortBreakMinutes: mins });
-                      setActivePicker(null);
-                    }}
-                  >
-                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{mins} min</Text>
-                    {plan.shortBreakMinutes === mins && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                  </TouchableOpacity>
-                ))}
-
-              {/* Long Break Length */}
-              {activePicker === 'longBreak' &&
-                [5, 10, 15, 20, 25, 30, 45].map((mins) => (
-                  <TouchableOpacity
-                    key={mins}
-                    style={styles.pickerOption}
-                    onPress={() => {
-                      updatePlan({ longBreakMinutes: mins });
-                      setActivePicker(null);
-                    }}
-                  >
-                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{mins} min</Text>
-                    {plan.longBreakMinutes === mins && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                  </TouchableOpacity>
-                ))}
-
-              {/* Long Break Every */}
-              {activePicker === 'longEvery' &&
-                (['never', 2, 3, 4, 5, 6, 8] as ('never' | number)[]).map((val) => (
-                  <TouchableOpacity
-                    key={String(val)}
-                    style={styles.pickerOption}
-                    onPress={() => {
-                      updatePlan({ longBreakEvery: val });
-                      setActivePicker(null);
-                    }}
-                  >
-                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>
-                      {val === 'never' ? 'Never' : `After ${val} sessions`}
-                    </Text>
-                    {plan.longBreakEvery === val && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                  </TouchableOpacity>
-                ))}
-
-              {/* Break Count */}
-              {activePicker === 'breakCount' &&
-                [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12].map((cnt) => {
-                  const max = plan.sessionCount === 'unlimited' ? 12 : plan.sessionCount;
-                  if (cnt > max && plan.sessionCount !== 'unlimited') return null;
-                  return (
-                    <TouchableOpacity
-                      key={cnt}
-                      style={styles.pickerOption}
-                      onPress={() => {
-                        updatePlan({ breakCount: cnt });
-                        setActivePicker(null);
-                      }}
-                    >
-                      <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{cnt} breaks</Text>
-                      {plan.breakCount === cnt && <Text style={{ color: colors.accentFocus }}>✓</Text>}
-                    </TouchableOpacity>
-                  );
-                })}
-
-              {/* Theme */}
-              {activePicker === 'theme' &&
-                ([
+            {/* Categorical Pickers: Theme & Clock Style */}
+            {activePicker === 'theme' && (
+              <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+                {([
                   { id: 'system', label: 'Follow System' },
                   { id: 'oled', label: 'OLED Obsidian' },
                   { id: 'papyrus', label: 'Warm Papyrus' },
@@ -442,10 +412,12 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
                     {plan.themePreset === t.id && <Text style={{ color: colors.accentFocus }}>✓</Text>}
                   </TouchableOpacity>
                 ))}
+              </ScrollView>
+            )}
 
-              {/* Clock Style */}
-              {activePicker === 'clockStyle' &&
-                ([
+            {activePicker === 'clockStyle' && (
+              <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+                {([
                   { id: 'ring', label: 'Circular Ring' },
                   { id: 'sandglass', label: 'Digital Minimal' },
                   { id: 'flip', label: 'Retro Flip Clock' },
@@ -463,9 +435,137 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
                     {plan.visualClockStyle === c.id && <Text style={{ color: colors.accentFocus }}>✓</Text>}
                   </TouchableOpacity>
                 ))}
-            </ScrollView>
+              </ScrollView>
+            )}
+
+            {/* Any Numerical Picker: Custom Input + Presets */}
+            {activePicker !== null && activePicker !== 'theme' && activePicker !== 'clockStyle' && (
+              <View>
+                {/* Direct Number Input Box */}
+                <View style={[styles.customInputCard, { backgroundColor: colors.background, borderColor: colors.surfaceBorder }]}>
+                  <TextInput
+                    style={[styles.customTextInput, { color: colors.textPrimary }]}
+                    value={customInputVal}
+                    onChangeText={setCustomInputVal}
+                    keyboardType="number-pad"
+                    selectTextOnFocus
+                    placeholder="Enter number..."
+                    placeholderTextColor={colors.textMuted}
+                    returnKeyType="done"
+                    onSubmitEditing={handleApplyCustomInput}
+                    autoFocus={true}
+                  />
+                  <Text style={[styles.customInputUnit, { color: colors.textSecondary }]}>
+                    {activePicker === 'focusLength' || activePicker === 'shortBreak' || activePicker === 'longBreak' || activePicker?.startsWith('customBlock_')
+                      ? 'min'
+                      : activePicker === 'sessionCount' || activePicker === 'longEvery'
+                      ? 'sessions'
+                      : 'breaks'}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.customInputApplyBtn, { backgroundColor: colors.accentFocus }]}
+                    onPress={handleApplyCustomInput}
+                  >
+                    <Text style={styles.customInputApplyText}>Set</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Special Shortcut Buttons */}
+                {activePicker === 'sessionCount' && (
+                  <TouchableOpacity
+                    style={[styles.specialToggleBtn, { borderColor: colors.surfaceBorder, backgroundColor: plan.sessionCount === 'unlimited' ? colors.surface : 'transparent' }]}
+                    onPress={() => {
+                      updatePlan({ sessionCount: 'unlimited' });
+                      setActivePicker(null);
+                    }}
+                  >
+                    <Text style={{ color: colors.accentFocus, fontWeight: '700' }}>
+                      Set to Unlimited Sessions {plan.sessionCount === 'unlimited' ? '✓' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {activePicker === 'longEvery' && (
+                  <TouchableOpacity
+                    style={[styles.specialToggleBtn, { borderColor: colors.surfaceBorder, backgroundColor: plan.longBreakEvery === 'never' ? colors.surface : 'transparent' }]}
+                    onPress={() => {
+                      updatePlan({ longBreakEvery: 'never' });
+                      setActivePicker(null);
+                    }}
+                  >
+                    <Text style={{ color: colors.accentFocus, fontWeight: '700' }}>
+                      Set to Never (No Long Break) {plan.longBreakEvery === 'never' ? '✓' : ''}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Quick Presets Grid */}
+                <Text style={[styles.presetsSubhead, { color: colors.textSecondary }]}>
+                  OR QUICK PRESETS:
+                </Text>
+
+                <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
+                  <View style={styles.presetsWrap}>
+                    {(activePicker === 'focusLength' || activePicker?.startsWith('customBlock_')
+                      ? [1, 2, 3, 4, 5, 8, 10, 15, 20, 25, 30, 45, 50, 60, 90, 120]
+                      : activePicker === 'shortBreak'
+                      ? [1, 2, 3, 4, 5, 8, 10, 15, 20, 30]
+                      : activePicker === 'longBreak'
+                      ? [5, 10, 15, 20, 25, 30, 45, 60]
+                      : activePicker === 'sessionCount'
+                      ? [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20]
+                      : activePicker === 'longEvery'
+                      ? [2, 3, 4, 5, 6, 8]
+                      : [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12]
+                    ).map((preset) => {
+                      const isCurrent =
+                        (activePicker === 'focusLength' && plan.focusMinutes === preset) ||
+                        (activePicker === 'shortBreak' && plan.shortBreakMinutes === preset) ||
+                        (activePicker === 'longBreak' && plan.longBreakMinutes === preset) ||
+                        (activePicker === 'sessionCount' && plan.sessionCount === preset) ||
+                        (activePicker === 'longEvery' && plan.longBreakEvery === preset) ||
+                        (activePicker === 'breakCount' && plan.breakCount === preset);
+
+                      return (
+                        <TouchableOpacity
+                          key={String(preset)}
+                          style={[
+                            styles.presetChip,
+                            {
+                              borderColor: isCurrent ? colors.accentFocus : colors.surfaceBorder,
+                              backgroundColor: isCurrent ? colors.surface : 'transparent',
+                            },
+                          ]}
+                          onPress={() => {
+                            if (activePicker === 'sessionCount') updatePlan({ sessionCount: preset });
+                            else if (activePicker === 'focusLength') updatePlan({ focusMinutes: preset });
+                            else if (activePicker === 'shortBreak') updatePlan({ shortBreakMinutes: preset });
+                            else if (activePicker === 'longBreak') updatePlan({ longBreakMinutes: preset });
+                            else if (activePicker === 'longEvery') updatePlan({ longBreakEvery: preset });
+                            else if (activePicker === 'breakCount') updatePlan({ breakCount: preset });
+                            else if (activePicker?.startsWith('customBlock_')) {
+                              const idx = parseInt(activePicker.replace('customBlock_', ''), 10);
+                              const updated = [...plan.customSequence];
+                              if (updated[idx]) {
+                                updated[idx] = { ...updated[idx], minutes: preset };
+                                updatePlan({ customSequence: updated });
+                              }
+                            }
+                            setActivePicker(null);
+                          }}
+                        >
+                          <Text style={[styles.presetChipText, { color: isCurrent ? colors.accentFocus : colors.textPrimary }]}>
+                            {preset}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </ScrollView>
+              </View>
+            )}
           </View>
-        </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Confirmation to reset plan */}
@@ -682,10 +782,91 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 20,
   },
+  pickerHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  pickerCloseBtn: {
+    padding: 4,
+    minHeight: 36,
+    minWidth: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   pickerTitle: {
     fontSize: 17,
     fontWeight: '700',
-    marginBottom: 14,
+  },
+  blockDurationPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  customInputCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginBottom: 10,
+  },
+  customTextInput: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '700',
+    paddingVertical: 8,
+  },
+  customInputUnit: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 10,
+  },
+  customInputApplyBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  customInputApplyText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  specialToggleBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  presetsSubhead: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginTop: 6,
+  },
+  presetsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingBottom: 8,
+  },
+  presetChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  presetChipText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   pickerOption: {
     flexDirection: 'row',

@@ -1,5 +1,14 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
 import { useTimerStore } from '@/store/useTimerStore';
 import { ThemeColors } from '@/theme/tokens';
 import { CircularRingClock } from '@/components/clocks/CircularRingClock';
@@ -26,6 +35,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
     resume,
     reset,
     skip,
+    setCurrentBlockMinutes,
     setCurrentScreen,
   } = useTimerStore();
 
@@ -40,6 +50,9 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
     message: '',
     action: () => {},
   });
+
+  const [durationModalOpen, setDurationModalOpen] = useState(false);
+  const [durationInputVal, setDurationInputVal] = useState('');
 
   const currentBlock = activeBlocks[currentBlockIndex] || activeBlocks[0] || {
     id: '1',
@@ -186,6 +199,24 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
 
         {/* Plan Progress Dots */}
         {renderProgressDots()}
+
+        {/* Quick Duration Pill (when idle) */}
+        {!isRunning && !isPaused && (
+          <TouchableOpacity
+            style={[styles.quickDurationPill, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
+            onPress={() => {
+              HapticService.buttonPress();
+              setDurationInputVal(String(currentBlock.minutes));
+              setDurationModalOpen(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Change duration for this session, currently ${currentBlock.minutes} minutes`}
+          >
+            <Text style={[styles.quickDurationText, { color: stageAccentColor }]}>
+              {currentBlock.minutes} min ✎
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Primary Action Button & Text Actions */}
@@ -246,6 +277,98 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
         }}
         colors={colors}
       />
+
+      {/* Direct Duration Selector Modal */}
+      <Modal
+        visible={durationModalOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDurationModalOpen(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setDurationModalOpen(false)}
+          />
+          <View style={[styles.dialogCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+            <View style={styles.dialogHeader}>
+              <Text style={[styles.dialogTitle, { color: colors.textPrimary }]}>
+                Set Duration
+              </Text>
+              <TouchableOpacity onPress={() => setDurationModalOpen(false)} style={styles.dialogCloseBtn}>
+                <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '700' }}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={[styles.dialogInputRow, { backgroundColor: colors.background, borderColor: colors.surfaceBorder }]}>
+              <TextInput
+                style={[styles.dialogTextInput, { color: colors.textPrimary }]}
+                value={durationInputVal}
+                onChangeText={setDurationInputVal}
+                keyboardType="number-pad"
+                selectTextOnFocus
+                placeholder="Enter minutes..."
+                placeholderTextColor={colors.textMuted}
+                autoFocus={true}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  const num = parseInt(durationInputVal.trim(), 10);
+                  if (!isNaN(num) && num > 0) {
+                    setCurrentBlockMinutes(num);
+                  }
+                  setDurationModalOpen(false);
+                }}
+              />
+              <Text style={[styles.dialogInputUnit, { color: colors.textSecondary }]}>min</Text>
+              <TouchableOpacity
+                style={[styles.dialogApplyBtn, { backgroundColor: stageAccentColor }]}
+                onPress={() => {
+                  const num = parseInt(durationInputVal.trim(), 10);
+                  if (!isNaN(num) && num > 0) {
+                    setCurrentBlockMinutes(num);
+                  }
+                  setDurationModalOpen(false);
+                }}
+              >
+                <Text style={styles.dialogApplyText}>Set</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.presetsSubhead, { color: colors.textSecondary }]}>QUICK PRESETS:</Text>
+            <View style={styles.presetsWrap}>
+              {[1, 2, 3, 5, 10, 15, 20, 25, 30, 45, 60, 90].map((preset) => (
+                <TouchableOpacity
+                  key={preset}
+                  style={[
+                    styles.presetChip,
+                    {
+                      borderColor: currentBlock.minutes === preset ? stageAccentColor : colors.surfaceBorder,
+                      backgroundColor: currentBlock.minutes === preset ? colors.surface : 'transparent',
+                    },
+                  ]}
+                  onPress={() => {
+                    setCurrentBlockMinutes(preset);
+                    setDurationModalOpen(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.presetChipText,
+                      { color: currentBlock.minutes === preset ? stageAccentColor : colors.textPrimary },
+                    ]}
+                  >
+                    {preset}m
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -297,10 +420,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  quickDurationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 18,
+  },
+  quickDurationText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
   dotsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 24,
+    marginTop: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -344,6 +480,90 @@ const styles = StyleSheet.create({
   },
   textBtnText: {
     fontSize: 15,
+    fontWeight: '600',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  dialogCard: {
+    width: '100%',
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 20,
+  },
+  dialogHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  dialogTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  dialogCloseBtn: {
+    padding: 4,
+    minHeight: 36,
+    minWidth: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dialogInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 4,
+    marginBottom: 12,
+  },
+  dialogTextInput: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '700',
+    paddingVertical: 8,
+  },
+  dialogInputUnit: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginRight: 10,
+  },
+  dialogApplyBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dialogApplyText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  presetsSubhead: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginTop: 4,
+  },
+  presetsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  presetChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  presetChipText: {
+    fontSize: 14,
     fontWeight: '600',
   },
 });
