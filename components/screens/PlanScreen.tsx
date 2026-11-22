@@ -464,20 +464,24 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
             {/* Any Numerical Picker: Custom Input + Presets */}
             {activePicker !== null && activePicker !== 'theme' && activePicker !== 'clockStyle' && (
               <View>
-                {/* Direct Number Input Box */}
-                <View style={[styles.customInputCard, { backgroundColor: colors.background, borderColor: colors.surfaceBorder }]}>
-                  <TextInput
-                    style={[styles.customTextInput, { color: colors.textPrimary }]}
-                    value={customInputVal}
-                    onChangeText={setCustomInputVal}
-                    keyboardType="number-pad"
-                    selectTextOnFocus
-                    placeholder="Enter number..."
-                    placeholderTextColor={colors.textMuted}
-                    returnKeyType="done"
-                    onSubmitEditing={handleApplyCustomInput}
-                    autoFocus={true}
-                  />
+                {/* Compact Centered Number Input */}
+                <View style={styles.customInputCenterRow}>
+                  <View style={[styles.customNumberBox, { backgroundColor: colors.background, borderColor: colors.surfaceBorder }]}>
+                    <TextInput
+                      style={[styles.customTextInput, { color: colors.textPrimary }]}
+                      value={customInputVal}
+                      onChangeText={setCustomInputVal}
+                      keyboardType="number-pad"
+                      selectTextOnFocus
+                      placeholder="0"
+                      placeholderTextColor={colors.textMuted}
+                      returnKeyType="done"
+                      onSubmitEditing={handleApplyCustomInput}
+                      autoFocus={true}
+                      maxLength={4}
+                      textAlign="center"
+                    />
+                  </View>
                   <Text style={[styles.customInputUnit, { color: colors.textSecondary }]}>
                     {activePicker === 'focusLength' || activePicker === 'shortBreak' || activePicker === 'longBreak' || activePicker?.startsWith('customBlock_')
                       ? 'min'
@@ -812,15 +816,17 @@ const styles = StyleSheet.create({
   },
   pickerDialog: {
     width: '100%',
-    borderRadius: 20,
-    borderWidth: 1,
+    maxWidth: 340,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
     padding: 20,
+    alignSelf: 'center',
   },
   pickerHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   pickerCloseBtn: {
     padding: 4,
@@ -837,32 +843,39 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
-  customInputCard: {
+  customInputCenterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    marginBottom: 10,
+    justifyContent: 'center',
+    gap: 10,
+    marginVertical: 10,
+  },
+  customNumberBox: {
+    width: 80,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   customTextInput: {
-    flex: 1,
+    width: '100%',
+    height: '100%',
     fontSize: 20,
     fontWeight: '700',
-    paddingVertical: 8,
+    textAlign: 'center',
+    paddingVertical: 0,
   },
   customInputUnit: {
     fontSize: 14,
     fontWeight: '600',
-    marginRight: 10,
   },
   customInputApplyBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },

@@ -318,25 +318,29 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
               </TouchableOpacity>
             </View>
 
-            <View style={[styles.dialogInputRow, { backgroundColor: colors.background, borderColor: colors.surfaceBorder }]}>
-              <TextInput
-                style={[styles.dialogTextInput, { color: colors.textPrimary }]}
-                value={durationInputVal}
-                onChangeText={setDurationInputVal}
-                keyboardType="number-pad"
-                selectTextOnFocus
-                placeholder="Enter minutes..."
-                placeholderTextColor={colors.textMuted}
-                autoFocus={true}
-                returnKeyType="done"
-                onSubmitEditing={() => {
-                  const num = parseInt(durationInputVal.trim(), 10);
-                  if (!isNaN(num) && num > 0) {
-                    setCurrentBlockMinutes(num);
-                  }
-                  setDurationModalOpen(false);
-                }}
-              />
+            <View style={styles.dialogInputCenterRow}>
+              <View style={[styles.dialogNumberBox, { backgroundColor: colors.background, borderColor: colors.surfaceBorder }]}>
+                <TextInput
+                  style={[styles.dialogTextInput, { color: colors.textPrimary }]}
+                  value={durationInputVal}
+                  onChangeText={setDurationInputVal}
+                  keyboardType="number-pad"
+                  selectTextOnFocus
+                  placeholder="25"
+                  placeholderTextColor={colors.textMuted}
+                  autoFocus={true}
+                  maxLength={4}
+                  textAlign="center"
+                  returnKeyType="done"
+                  onSubmitEditing={() => {
+                    const num = parseInt(durationInputVal.trim(), 10);
+                    if (!isNaN(num) && num > 0) {
+                      setCurrentBlockMinutes(num);
+                    }
+                    setDurationModalOpen(false);
+                  }}
+                />
+              </View>
               <Text style={[styles.dialogInputUnit, { color: colors.textSecondary }]}>min</Text>
               <TouchableOpacity
                 style={[styles.dialogApplyBtn, { backgroundColor: stageAccentColor }]}
@@ -513,18 +517,20 @@ const styles = StyleSheet.create({
   },
   dialogCard: {
     width: '100%',
+    maxWidth: 340,
     borderRadius: 24,
     borderWidth: StyleSheet.hairlineWidth,
     padding: 22,
+    alignSelf: 'center',
   },
   dialogHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   dialogTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
   },
   dialogCloseBtn: {
@@ -534,30 +540,37 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dialogInputRow: {
+  dialogInputCenterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 14,
+    justifyContent: 'center',
+    gap: 10,
+    marginVertical: 10,
+  },
+  dialogNumberBox: {
+    width: 80,
+    height: 44,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 14,
-    paddingVertical: 4,
-    marginBottom: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   dialogTextInput: {
-    flex: 1,
+    width: '100%',
+    height: '100%',
     fontSize: 20,
     fontWeight: '700',
-    paddingVertical: 8,
+    textAlign: 'center',
+    paddingVertical: 0,
   },
   dialogInputUnit: {
     fontSize: 14,
     fontWeight: '600',
-    marginRight: 10,
   },
   dialogApplyBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+    height: 44,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
   },
