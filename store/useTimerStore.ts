@@ -330,6 +330,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
       const { activeBlocks, currentBlockIndex, plan } = get();
       NotificationService.cancelOngoing();
 
+      const currentBlock = activeBlocks[currentBlockIndex];
       let nextIndex = currentBlockIndex + 1;
       if (nextIndex >= activeBlocks.length) {
         // Entire cycle is finished!
@@ -364,7 +365,14 @@ export const useTimerStore = create<TimerState>((set, get) => {
       });
 
       HapticService.stageComplete();
-      AudioFeedbackService.playStageCompleteSound();
+      AudioFeedbackService.playStageCompleteSound(currentBlock?.type);
+
+      if (plan.notifyOnEnd) {
+        const currentLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Short Break';
+        const nextLabel = nextBlock?.type === 'focus' ? 'Focus Session' : nextBlock?.type === 'long' ? 'Long Break' : 'Short Break';
+        NotificationService.showCompletionAlarm(currentBlock?.type || 'focus', currentLabel, nextLabel);
+      }
+
       persist();
 
       if (plan.autoStartNext) {
@@ -406,15 +414,15 @@ export const useTimerStore = create<TimerState>((set, get) => {
           persist();
         } else {
           HapticService.stageComplete();
-          AudioFeedbackService.playStageCompleteSound();
+          AudioFeedbackService.playStageCompleteSound(currentBlock?.type);
 
           const nextBlock = activeBlocks[nextIndex] || activeBlocks[0];
           const durationMs = (nextBlock?.minutes || 25) * 60 * 1000;
 
           if (plan.notifyOnEnd) {
-            const currentLabel = currentBlock?.type === 'focus' ? 'Focus Session' : 'Break';
-            const nextLabel = nextBlock?.type === 'focus' ? 'Focus Session' : 'Break';
-            NotificationService.showCompletionAlarm(currentLabel, nextLabel);
+            const currentLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Short Break';
+            const nextLabel = nextBlock?.type === 'focus' ? 'Focus Session' : nextBlock?.type === 'long' ? 'Long Break' : 'Short Break';
+            NotificationService.showCompletionAlarm(currentBlock?.type || 'focus', currentLabel, nextLabel);
           }
 
           set({

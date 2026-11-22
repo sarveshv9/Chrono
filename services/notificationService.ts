@@ -22,6 +22,7 @@ export class NotificationService {
     try {
       await notifee.requestPermission();
 
+      // Channel 1: Persistent countdown timer while running
       await notifee.createChannel({
         id: 'pomodoro_ongoing',
         name: 'Ongoing Focus Timer',
@@ -29,14 +30,25 @@ export class NotificationService {
         vibration: false,
       });
 
+      // Channel 2: Focus Session Finished -> Time to relax
       await notifee.createChannel({
-        id: 'pomodoro_alarm',
-        name: 'Stage Completion Alarm',
+        id: 'pomodoro_focus_complete',
+        name: 'Focus Finished (Break Time)',
         importance: AndroidImportance.HIGH,
         sound: 'default',
         vibration: true,
       });
 
+      // Channel 3: Break Finished -> Time to jump back in
+      await notifee.createChannel({
+        id: 'pomodoro_break_complete',
+        name: 'Break Finished (Focus Time)',
+        importance: AndroidImportance.HIGH,
+        sound: 'alarm',
+        vibration: true,
+      });
+
+      // Channel 4: All Sessions Finished -> Full celebration
       await notifee.createChannel({
         id: 'pomodoro_cycle_complete',
         name: 'Full Cycle Celebration',
@@ -95,21 +107,42 @@ export class NotificationService {
     } catch {}
   }
 
-  static async showCompletionAlarm(stageName: string, nextStageName: string) {
+  /**
+   * Display completion notification with distinct sounds and vibrations for Focus vs Break
+   */
+  static async showCompletionAlarm(
+    completedType: 'focus' | 'short' | 'long',
+    stageName: string,
+    nextStageName: string
+  ) {
     if (!notifee || Platform.OS !== 'android') return;
 
     try {
       await this.cancelOngoing();
 
+      const isFocus = completedType === 'focus';
+      const channelId = isFocus ? 'pomodoro_focus_complete' : 'pomodoro_break_complete';
+      const title = isFocus ? `🌿 ${stageName} Finished!` : `⚡ ${stageName} Finished!`;
+      const body = isFocus
+        ? `Great job! Time for ${nextStageName.toLowerCase()}. Tap to begin.`
+        : `${nextStageName} is starting now. Let's get focused!`;
+
+      // Distinct vibration profiles:
+      // Focus: gentle rhythmic pulses
+      // Break: alert staccato pulses
+      const vibrationPattern = isFocus
+        ? [0, 450, 250, 450]
+        : [0, 200, 100, 200, 100, 300];
+
       await notifee.displayNotification({
         id: 'pomodoro_completed',
-        title: `🎉 ${stageName} Finished!`,
-        body: `Ready for ${nextStageName}? Tap to begin.`,
+        title,
+        body,
         android: {
-          channelId: 'pomodoro_alarm',
+          channelId,
           importance: AndroidImportance.HIGH,
-          sound: 'default',
-          vibrationPattern: [300, 500, 300, 500],
+          sound: isFocus ? 'default' : 'alarm',
+          vibrationPattern,
           pressAction: {
             id: 'default',
           },

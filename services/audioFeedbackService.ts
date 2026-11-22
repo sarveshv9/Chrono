@@ -23,23 +23,56 @@ export class AudioFeedbackService {
   }
 
   /**
-   * Play standard single-block transition chime (two-tone bell: C5 -> E5)
+   * Play soothing, gentle release chime when a FOCUS session ends (entering break).
+   * Mellow descending Zen tone (E5 -> A4 with warm sub-harmonic A3).
    */
-  static playStageCompleteSound() {
+  static playFocusCompleteSound() {
     try {
       const ctx = this.getAudioContext();
       if (!ctx) return;
 
       const now = ctx.currentTime;
-      // Tone 1: C5 (523.25 Hz)
-      this.playTone(ctx, 523.25, now, 0.25, 0.15);
-      // Tone 2: E5 (659.25 Hz)
-      this.playTone(ctx, 659.25, now + 0.15, 0.4, 0.18);
+      // Tone 1: E5 (659.25 Hz) - gentle bell initiation
+      this.playTone(ctx, 659.25, now, 0.45, 0.16);
+      // Tone 2: A4 (440.00 Hz) - peaceful resting resolution
+      this.playTone(ctx, 440.00, now + 0.18, 0.75, 0.18);
+      // Warm grounding undertone: A3 (220.00 Hz)
+      this.playTone(ctx, 220.00, now + 0.18, 0.75, 0.12, 'triangle');
     } catch {}
   }
 
   /**
-   * Play DISTINCT full-cycle completion celebratory fanfare (Ascending C Major chord with harmonic richness)
+   * Play crisp, energizing prompt chime when a BREAK ends (entering focus).
+   * Bright ascending major triad (D5 -> F#5 -> A5) to invigorate and alert.
+   */
+  static playBreakCompleteSound() {
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+      // Note 1: D5 (587.33 Hz)
+      this.playTone(ctx, 587.33, now, 0.22, 0.16);
+      // Note 2: F#5 (739.99 Hz)
+      this.playTone(ctx, 739.99, now + 0.12, 0.25, 0.18);
+      // Note 3: A5 (880.00 Hz) - crisp alert top tone
+      this.playTone(ctx, 880.00, now + 0.24, 0.5, 0.22);
+    } catch {}
+  }
+
+  /**
+   * Route stage completion sound based on whether focus or break just finished.
+   */
+  static playStageCompleteSound(completedType: 'focus' | 'short' | 'long' = 'focus') {
+    if (completedType === 'focus') {
+      this.playFocusCompleteSound();
+    } else {
+      this.playBreakCompleteSound();
+    }
+  }
+
+  /**
+   * Play DISTINCT full-cycle completion celebratory fanfare (Ascending C Major chord with harmonic richness).
    */
   static playCycleCompleteSound() {
     try {
