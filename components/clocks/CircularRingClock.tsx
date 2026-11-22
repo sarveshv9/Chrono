@@ -16,7 +16,7 @@ export const CircularRingClock: React.FC<CircularRingClockProps> = ({
   totalDurationMs,
   colors,
   size = 280,
-  strokeWidth = 8,
+  strokeWidth = 6.5,
 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
@@ -37,7 +37,8 @@ export const CircularRingClock: React.FC<CircularRingClockProps> = ({
           cy={size / 2}
           r={radius}
           stroke={colors.progressTrack}
-          strokeWidth={strokeWidth}
+          strokeWidth={3.5}
+          strokeOpacity={0.6}
           fill="none"
         />
         {/* Foreground Progress Ring */}
@@ -77,9 +78,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   digits: {
-    fontSize: 64,
-    fontWeight: '300',
+    fontSize: 68,
+    fontWeight: '200',
     fontVariant: ['tabular-nums'],
-    letterSpacing: -1.5,
+    letterSpacing: -2,
   },
 });

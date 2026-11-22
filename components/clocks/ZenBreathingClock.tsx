@@ -43,10 +43,17 @@ export const ZenBreathingClock: React.FC<ZenBreathingClockProps> = ({
       <Animated.View style={[styles.breathingContainer, { transform: [{ scale }] }]}>
         <View
           style={[
-            styles.breathingOrb,
+            styles.breathingHalo,
             {
-              backgroundColor: colors.surface,
               borderColor: colors.accentActive,
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.breathingCore,
+            {
+              backgroundColor: colors.accentActive + '18',
             },
           ]}
         />
@@ -72,16 +79,23 @@ const styles = StyleSheet.create({
   },
   breathingContainer: {
     position: 'absolute',
-    width: 200,
-    height: 200,
+    width: 220,
+    height: 220,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  breathingOrb: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 2,
+  breathingHalo: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: StyleSheet.hairlineWidth * 2,
+    opacity: 0.45,
+  },
+  breathingCore: {
+    width: 170,
+    height: 170,
+    borderRadius: 85,
     opacity: 0.35,
   },
   contentOverlay: {
@@ -89,15 +103,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   digits: {
-    fontSize: 54,
-    fontWeight: '300',
+    fontSize: 56,
+    fontWeight: '200',
     fontVariant: ['tabular-nums'],
-    letterSpacing: -1,
+    letterSpacing: -1.5,
   },
   caption: {
-    fontSize: 14,
-    marginTop: 6,
-    letterSpacing: 1,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 1.5,
     textTransform: 'uppercase',
+    marginTop: 8,
+    opacity: 0.7,
   },
 });

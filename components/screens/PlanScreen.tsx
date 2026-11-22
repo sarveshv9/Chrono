@@ -181,6 +181,17 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        {/* CYCLE PREVIEW HERO CARD */}
+        <View style={[styles.heroCycleCard, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.surfaceBorder }]}>
+          <Text style={[styles.heroCycleLabel, { color: colors.textMuted }]}>PLANNED CYCLE</Text>
+          <Text style={[styles.heroCycleTime, { color: colors.textPrimary }]}>
+            {formattedTotalTime}
+          </Text>
+          <Text style={[styles.heroCycleSubtitle, { color: colors.textSecondary }]}>
+            {plan.sessionCount === 'unlimited' ? 'Continuous loop' : `${plan.sessionCount} focus sessions · ${plan.breakCount} breaks`}
+          </Text>
+        </View>
+
         {/* SESSIONS SECTION */}
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>SESSIONS</Text>
         <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
@@ -258,16 +269,38 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
                 >
                   <View style={styles.blockInfo}>
                     <Text style={[styles.blockIndex, { color: colors.textMuted }]}>#{idx + 1}</Text>
-                    <Text style={[styles.blockTitle, { color: colors.textPrimary }]}>
-                      {block.type === 'focus' ? 'Focus' : block.type === 'long' ? 'Long Break' : 'Short Break'}
-                    </Text>
+                    <View style={[
+                      styles.typeTag,
+                      {
+                        backgroundColor:
+                          block.type === 'focus'
+                            ? colors.accentFocus + '22'
+                            : block.type === 'long'
+                            ? colors.accentLongBreak + '22'
+                            : colors.accentShortBreak + '22',
+                      },
+                    ]}>
+                      <Text style={[
+                        styles.typeTagText,
+                        {
+                          color:
+                            block.type === 'focus'
+                              ? colors.accentFocus
+                              : block.type === 'long'
+                              ? colors.accentLongBreak
+                              : colors.accentShortBreak,
+                        },
+                      ]}>
+                        {block.type === 'focus' ? 'Focus' : block.type === 'long' ? 'Long' : 'Short'}
+                      </Text>
+                    </View>
                     <TouchableOpacity
                       style={[styles.blockDurationPill, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
                       onPress={() => openPicker(`customBlock_${idx}`, block.minutes)}
                       accessibilityLabel={`Change duration for block ${idx + 1}, currently ${block.minutes} minutes`}
                       accessibilityRole="button"
                     >
-                      <Text style={[styles.blockDuration, { color: colors.accentFocus }]}>
+                      <Text style={[styles.blockDuration, { color: colors.textPrimary }]}>
                         {block.minutes}m ✎
                       </Text>
                     </TouchableOpacity>
@@ -277,25 +310,25 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
                     {idx > 0 && (
                       <TouchableOpacity
                         onPress={() => handleMoveBlock(idx, 'up')}
-                        style={styles.reorderBtn}
+                        style={[styles.reorderBtn, { borderColor: colors.surfaceBorder }]}
                       >
-                        <Text style={{ color: colors.textPrimary }}>▲</Text>
+                        <Text style={{ color: colors.textPrimary, fontSize: 12 }}>▲</Text>
                       </TouchableOpacity>
                     )}
                     {idx < plan.customSequence.length - 1 && (
                       <TouchableOpacity
                         onPress={() => handleMoveBlock(idx, 'down')}
-                        style={styles.reorderBtn}
+                        style={[styles.reorderBtn, { borderColor: colors.surfaceBorder }]}
                       >
-                        <Text style={{ color: colors.textPrimary }}>▼</Text>
+                        <Text style={{ color: colors.textPrimary, fontSize: 12 }}>▼</Text>
                       </TouchableOpacity>
                     )}
                     {plan.customSequence.length > 1 && (
                       <TouchableOpacity
                         onPress={() => handleDeleteCustomBlock(idx)}
-                        style={styles.deleteBlockBtn}
+                        style={[styles.deleteBlockBtn, { borderColor: colors.surfaceBorder }]}
                       >
-                        <Text style={{ color: colors.danger, fontWeight: '700' }}>✕</Text>
+                        <Text style={{ color: colors.danger, fontWeight: '700', fontSize: 12 }}>✕</Text>
                       </TouchableOpacity>
                     )}
                   </View>
@@ -342,24 +375,14 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
           )}
         </View>
 
-        {/* FOOTER: LIVE TOTAL TIME & RESET DEFAULTS */}
+        {/* QUIET RESET ACTION */}
         <View style={styles.footerSection}>
-          <View style={[styles.totalTimeCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-            <Text style={[styles.totalTimeLabel, { color: colors.textSecondary }]}>CYCLE ESTIMATE</Text>
-            <Text style={[styles.totalTimeValue, { color: colors.textPrimary }]}>
-              {formattedTotalTime} total
-            </Text>
-            <Text style={[styles.totalTimeDetails, { color: colors.textMuted }]}>
-              {plan.sessionCount === 'unlimited' ? 'Continuous loop' : `${plan.sessionCount} focus sessions, ${plan.breakCount} breaks`}
-            </Text>
-          </View>
-
           <TouchableOpacity
-            style={[styles.resetDefaultsBtn, { borderColor: colors.surfaceBorder }]}
+            style={styles.resetTextBtn}
             onPress={() => setIsResetConfirmOpen(true)}
           >
-            <Text style={[styles.resetDefaultsText, { color: colors.danger }]}>
-              Reset to defaults (25 / 5 / 15, 4 sessions)
+            <Text style={[styles.resetTextBtnLabel, { color: colors.textMuted }]}>
+              Reset Plan to Standard Defaults
             </Text>
           </TouchableOpacity>
         </View>
@@ -626,6 +649,28 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 50,
   },
+  heroCycleCard: {
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  heroCycleLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+  },
+  heroCycleTime: {
+    fontSize: 32,
+    fontWeight: '800',
+    marginVertical: 4,
+    letterSpacing: -0.5,
+  },
+  heroCycleSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '700',
@@ -635,7 +680,7 @@ const styles = StyleSheet.create({
   },
   group: {
     borderRadius: 16,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
   },
   row: {
@@ -663,7 +708,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   divider: {
-    height: 1,
+    height: StyleSheet.hairlineWidth,
     marginLeft: 16,
   },
   customSequenceWrapper: {
@@ -681,44 +726,52 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 12,
     borderRadius: 12,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 8,
   },
   blockInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
   },
   blockIndex: {
     fontSize: 12,
     fontWeight: '700',
   },
-  blockTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+  typeTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  typeTagText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
   },
   blockDuration: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
   },
   blockControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   reorderBtn: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   deleteBlockBtn: {
-    width: 32,
-    height: 32,
+    width: 30,
+    height: 30,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   addBlockRow: {
     flexDirection: 'row',
@@ -729,7 +782,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
   },
   addPillText: {
@@ -737,37 +790,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   footerSection: {
-    marginTop: 24,
-    gap: 16,
-  },
-  totalTimeCard: {
-    padding: 18,
-    borderRadius: 16,
-    borderWidth: 1,
+    marginTop: 28,
     alignItems: 'center',
   },
-  totalTimeLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
-  totalTimeValue: {
-    fontSize: 24,
-    fontWeight: '800',
-    marginVertical: 4,
-  },
-  totalTimeDetails: {
-    fontSize: 13,
-  },
-  resetDefaultsBtn: {
+  resetTextBtn: {
     paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
+    paddingHorizontal: 20,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  resetDefaultsText: {
+  resetTextBtnLabel: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   modalBackdrop: {
     flex: 1,

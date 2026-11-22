@@ -100,15 +100,16 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
         {focusBlocks.map((_, idx) => {
           const isFilled = idx < currentFocusIndex;
           const isCurrent = idx === currentFocusIndex - 1 && currentBlock.type === 'focus';
+          const pillWidth = isCurrent ? 22 : isFilled ? 14 : 6;
           return (
             <View
               key={idx}
               style={[
-                styles.dot,
+                styles.dotPill,
                 {
-                  backgroundColor: isFilled ? colors.accentFocus : 'transparent',
-                  borderColor: isCurrent ? colors.textPrimary : colors.accentFocus,
-                  opacity: isFilled || isCurrent ? 1 : 0.35,
+                  width: pillWidth,
+                  backgroundColor: isFilled || isCurrent ? colors.accentFocus : colors.progressTrack,
+                  opacity: isFilled || isCurrent ? 1 : 0.4,
                 },
               ]}
             />
@@ -148,11 +149,11 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
 
   return (
     <View style={styles.container}>
-      {/* Top Header Rail: Plan button on the top right */}
+      {/* Top Header Rail: Brand & Plan capsule */}
       <View style={styles.header}>
-        <View style={styles.headerLeft} />
+        <Text style={[styles.brandTitle, { color: colors.textMuted }]}>CHRONOCRAFT</Text>
         <TouchableOpacity
-          style={[styles.planBtn, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
+          style={[styles.planBtn, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.surfaceBorder }]}
           onPress={() => {
             HapticService.buttonPress();
             setCurrentScreen('plan');
@@ -170,11 +171,23 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
         accessible
         accessibilityLabel={`Timer, ${minutes} minutes ${seconds} seconds, ${isRunning ? 'running' : isPaused ? 'paused' : 'idle'}`}
       >
-        <Text style={[styles.stageHeading, { color: stageAccentColor }]}>
-          {getStageHeader()}
-        </Text>
+        <View style={[styles.stagePill, { backgroundColor: colors.glassBg, borderColor: colors.surfaceBorder }]}>
+          <Text style={[styles.stagePillText, { color: stageAccentColor }]}>
+            {getStageHeader()}
+          </Text>
+        </View>
 
-        <View style={styles.clockWrapper}>
+        <TouchableOpacity
+          activeOpacity={isRunning ? 1 : 0.75}
+          onPress={() => {
+            if (!isRunning) {
+              HapticService.buttonPress();
+              setDurationInputVal(String(currentBlock.minutes));
+              setDurationModalOpen(true);
+            }
+          }}
+          style={styles.clockWrapper}
+        >
           {plan.visualClockStyle === 'ring' && (
             <CircularRingClock
               remainingMs={remainingMs}
@@ -195,15 +208,15 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
           {plan.visualClockStyle === 'breathing' && (
             <ZenBreathingClock remainingMs={remainingMs} colors={colors} />
           )}
-        </View>
+        </TouchableOpacity>
 
-        {/* Plan Progress Dots */}
+        {/* Plan Progress Oblong Indicators */}
         {renderProgressDots()}
 
-        {/* Quick Duration Pill (when idle) */}
+        {/* Duration Badge (when idle) */}
         {!isRunning && !isPaused && (
           <TouchableOpacity
-            style={[styles.quickDurationPill, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
+            style={[styles.quickDurationBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.surfaceBorder }]}
             onPress={() => {
               HapticService.buttonPress();
               setDurationInputVal(String(currentBlock.minutes));
@@ -212,19 +225,30 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
             accessibilityRole="button"
             accessibilityLabel={`Change duration for this session, currently ${currentBlock.minutes} minutes`}
           >
-            <Text style={[styles.quickDurationText, { color: stageAccentColor }]}>
-              {currentBlock.minutes} min ✎
+            <Text style={[styles.quickDurationText, { color: colors.textSecondary }]}>
+              {currentBlock.minutes} MIN FOCUS <Text style={{ color: stageAccentColor }}>▾</Text>
             </Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Primary Action Button & Text Actions */}
-      <View style={styles.actionSection}>
-        {/* Single Primary Start / Pause Button */}
+      {/* Symmetrical Floating Action Pod */}
+      <View style={styles.actionPod}>
+        {/* Reset Disc Button */}
         <TouchableOpacity
-          style={[styles.primaryBtn, { backgroundColor: stageAccentColor }]}
+          style={[styles.discBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.surfaceBorder }]}
+          onPress={handleResetPress}
+          accessibilityRole="button"
+          accessibilityLabel="Reset current session"
+        >
+          <Text style={[styles.discBtnIcon, { color: colors.textSecondary }]}>↺</Text>
+        </TouchableOpacity>
+
+        {/* Hero Capsule Start/Pause Button */}
+        <TouchableOpacity
+          style={[styles.heroPillBtn, { backgroundColor: stageAccentColor }]}
           onPress={() => {
+            HapticService.buttonPress();
             if (isRunning) {
               pause();
             } else if (isPaused) {
@@ -233,34 +257,24 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
               start();
             }
           }}
+          activeOpacity={0.88}
           accessibilityRole="button"
           accessibilityLabel={isRunning ? 'Pause timer' : isPaused ? 'Resume timer' : 'Start timer'}
         >
-          <Text style={styles.primaryBtnText}>
-            {isRunning ? 'Pause' : isPaused ? 'Resume' : 'Start'}
+          <Text style={styles.heroPillText}>
+            {isRunning ? 'PAUSE' : isPaused ? 'RESUME' : 'START'}
           </Text>
         </TouchableOpacity>
 
-        {/* Secondary Plain Text Actions: Skip & Reset */}
-        <View style={styles.textActionRow}>
-          <TouchableOpacity
-            style={styles.textBtn}
-            onPress={handleSkipPress}
-            accessibilityRole="button"
-            accessibilityLabel="Skip to next block"
-          >
-            <Text style={[styles.textBtnText, { color: colors.textSecondary }]}>Skip</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.textBtn}
-            onPress={handleResetPress}
-            accessibilityRole="button"
-            accessibilityLabel="Reset current block"
-          >
-            <Text style={[styles.textBtnText, { color: colors.textSecondary }]}>Reset</Text>
-          </TouchableOpacity>
-        </View>
+        {/* Skip Disc Button */}
+        <TouchableOpacity
+          style={[styles.discBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.surfaceBorder }]}
+          onPress={handleSkipPress}
+          accessibilityRole="button"
+          accessibilityLabel="Skip to next session"
+        >
+          <Text style={[styles.discBtnIcon, { color: colors.textSecondary }]}>⇥</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Confirmation Modal */}
@@ -378,30 +392,31 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 24,
     justifyContent: 'space-between',
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 8,
+    paddingTop: 10,
     minHeight: 48,
   },
-  headerLeft: {
-    flex: 1,
+  brandTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2,
   },
   planBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
   planBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
     letterSpacing: 0.2,
   },
   clockSection: {
@@ -409,100 +424,107 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stageHeading: {
-    fontSize: 14,
+  stagePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginBottom: 24,
+  },
+  stagePillText: {
+    fontSize: 12,
     fontWeight: '700',
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
-    marginBottom: 20,
   },
   clockWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  quickDurationPill: {
+  dotsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 24,
+  },
+  dotPill: {
+    height: 5,
+    borderRadius: 2.5,
+  },
+  quickDurationBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 14,
-    borderWidth: 1,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
     marginTop: 18,
   },
   quickDurationText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
+    letterSpacing: 0.8,
   },
-  dotsRow: {
+  actionPod: {
     flexDirection: 'row',
-    gap: 8,
-    marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    width: '100%',
+    paddingBottom: Platform.OS === 'ios' ? 12 : 20,
+  },
+  discBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 2,
+  discBtnIcon: {
+    fontSize: 20,
+    fontWeight: '500',
   },
-  actionSection: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 16,
-  },
-  primaryBtn: {
-    width: '100%',
-    paddingVertical: 18,
-    borderRadius: 16,
+  heroPillBtn: {
+    width: 170,
+    height: 56,
+    borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 56,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  primaryBtnText: {
+  heroPillText: {
     color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    letterSpacing: 0.5,
-  },
-  textActionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    paddingHorizontal: 20,
-  },
-  textBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  textBtnText: {
-    fontSize: 15,
-    fontWeight: '600',
+    letterSpacing: 1.2,
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   dialogCard: {
     width: '100%',
-    borderRadius: 20,
-    borderWidth: 1,
-    padding: 20,
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 22,
   },
   dialogHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
   },
   dialogTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '700',
   },
   dialogCloseBtn: {
@@ -516,10 +538,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderRadius: 14,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
     paddingHorizontal: 14,
     paddingVertical: 4,
-    marginBottom: 12,
+    marginBottom: 14,
   },
   dialogTextInput: {
     flex: 1,
@@ -560,7 +582,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 10,
-    borderWidth: 1,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   presetChipText: {
     fontSize: 14,
