@@ -3,15 +3,23 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity } from 'react-native';
 import { ThemeColors } from '@/theme/tokens';
 import { HapticService } from '@/services/hapticsService';
 
-interface ConfirmStopModalProps {
+interface ConfirmActionModalProps {
   visible: boolean;
+  title: string;
+  message: string;
+  confirmText?: string;
+  isDestructive?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
   colors: ThemeColors;
 }
 
-export const ConfirmStopModal: React.FC<ConfirmStopModalProps> = ({
+export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
   visible,
+  title,
+  message,
+  confirmText = 'Confirm',
+  isDestructive = true,
   onCancel,
   onConfirm,
   colors,
@@ -20,10 +28,8 @@ export const ConfirmStopModal: React.FC<ConfirmStopModalProps> = ({
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.backdrop}>
         <View style={[styles.dialog, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-          <Text style={[styles.title, { color: colors.textPrimary }]}>Stop Session?</Text>
-          <Text style={[styles.message, { color: colors.textSecondary }]}>
-            Stopping will cancel this session and reset the timer. This action cannot be undone.
-          </Text>
+          <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
+          <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
 
           <View style={styles.buttonRow}>
             <TouchableOpacity
@@ -37,14 +43,17 @@ export const ConfirmStopModal: React.FC<ConfirmStopModalProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.btn, { backgroundColor: colors.danger }]}
+              style={[
+                styles.btn,
+                { backgroundColor: isDestructive ? colors.danger : colors.accentFocus },
+              ]}
               onPress={() => {
                 HapticService.buttonPress();
                 onConfirm();
               }}
             >
               <Text style={[styles.btnText, { color: '#FFFFFF', fontWeight: '700' }]}>
-                Stop Session
+                {confirmText}
               </Text>
             </TouchableOpacity>
           </View>
@@ -66,7 +75,7 @@ const styles = StyleSheet.create({
     width: '100%',
     borderRadius: 20,
     borderWidth: 1,
-    padding: 20,
+    padding: 22,
   },
   title: {
     fontSize: 18,
@@ -84,11 +93,11 @@ const styles = StyleSheet.create({
   },
   btn: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 13,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
+    minHeight: 48,
   },
   btnText: {
     fontSize: 14,

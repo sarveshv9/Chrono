@@ -1,28 +1,26 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, AppState, AppStateStatus, SafeAreaView, View, useColorScheme } from 'react-native';
+import { StyleSheet, AppState, AppStateStatus, SafeAreaView, View, useColorScheme, BackHandler } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTimerStore } from '@/store/useTimerStore';
 import { NotificationService } from '@/services/notificationService';
 import { resolveThemeColors } from '@/theme/tokens';
-import { BottomTabBar } from '@/components/navigation/BottomTabBar';
-import { TimerTab } from '@/components/tabs/TimerTab';
-import { TasksTab } from '@/components/tabs/TasksTab';
-import { StatsTab } from '@/components/tabs/StatsTab';
-import { SettingsTab } from '@/components/tabs/SettingsTab';
+import { TimerScreen } from '@/components/screens/TimerScreen';
+import { PlanScreen } from '@/components/screens/PlanScreen';
 
 export default function App() {
   const tick = useTimerStore((state) => state.tick);
   const reconcile = useTimerStore((state) => state.reconcile);
   const loadPersistedState = useTimerStore((state) => state.loadPersistedState);
   const status = useTimerStore((state) => state.status);
-  const activeTab = useTimerStore((state) => state.activeTab);
-  const themePreset = useTimerStore((state) => state.settings.themePreset);
+  const currentScreen = useTimerStore((state) => state.currentScreen);
+  const setCurrentScreen = useTimerStore((state) => state.setCurrentScreen);
+  const themePreset = useTimerStore((state) => state.plan.themePreset);
 
   const systemColorScheme = useColorScheme();
   const theme = resolveThemeColors(themePreset, systemColorScheme);
   const colors = theme.colors;
 
-  // Initialize notifications and rehydrate state
+  // Initialize notifications and rehydrate persisted plan & timer state
   useEffect(() => {
     NotificationService.init();
     loadPersistedState();
@@ -51,18 +49,31 @@ export default function App() {
     return () => subscription.remove();
   }, [reconcile]);
 
+  // Hardware Android Back button support
+  useEffect(() => {
+    const onBackPress = () => {
+      if (currentScreen === 'plan') {
+        setCurrentScreen('timer');
+        return true;
+      }
+      return false;
+    };
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+    return () => subscription.remove();
+  }, [currentScreen, setCurrentScreen]);
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <StatusBar style={theme.isDark ? 'light' : 'dark'} />
 
       <View style={styles.content}>
-        {activeTab === 'timer' && <TimerTab colors={colors} />}
-        {activeTab === 'tasks' && <TasksTab colors={colors} />}
-        {activeTab === 'stats' && <StatsTab colors={colors} />}
-        {activeTab === 'settings' && <SettingsTab colors={colors} />}
+        {currentScreen === 'timer' ? (
+          <TimerScreen colors={colors} />
+        ) : (
+          <PlanScreen colors={colors} />
+        )}
       </View>
-
-      <BottomTabBar colors={colors} />
     </SafeAreaView>
   );
 }

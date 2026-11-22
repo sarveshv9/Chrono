@@ -4,207 +4,246 @@ import { ThemePreset } from '@/theme/tokens';
 import { HapticService } from '@/services/hapticsService';
 import { NotificationService } from '@/services/notificationService';
 
-export type StageType = 'focus' | 'shortBreak' | 'longBreak';
-export type TimerStatus = 'idle' | 'running' | 'paused' | 'completed';
+export type BlockType = 'focus' | 'short' | 'long';
+export type TimerStatus = 'idle' | 'running' | 'paused';
 export type ClockStyle = 'ring' | 'flip' | 'sandglass' | 'breathing';
-export type NavigationTab = 'timer' | 'tasks' | 'stats' | 'settings';
 
-export interface TaskItem {
+export interface PomodoroBlock {
   id: string;
-  name: string;
-  color: string;
-  completedSessions: number;
+  type: BlockType;
+  minutes: number;
 }
 
-export interface SessionHistoryItem {
-  id: string;
-  stage: StageType;
-  durationMinutes: number;
-  completedAt: string;
-  taskName: string;
-}
-
-export interface TimerSettings {
-  focusDurationMin: number;
-  shortBreakDurationMin: number;
-  longBreakDurationMin: number;
-  longBreakInterval: number;
-  autoStartBreaks: boolean;
-  autoStartFocus: boolean;
-  hapticsEnabled: boolean;
-  soundEnabled: boolean;
-  keepScreenAwake: boolean;
-  dailyGoalSessions: number;
+export interface PomodoroPlan {
+  focusMinutes: number;
+  shortBreakMinutes: number;
+  longBreakMinutes: number;
+  sessionCount: number | 'unlimited';
+  breakCount: number;
+  longBreakEvery: number | 'never';
+  autoStartNext: boolean;
+  notifyOnEnd: boolean;
+  customSequenceEnabled: boolean;
+  customSequence: PomodoroBlock[];
   visualClockStyle: ClockStyle;
   themePreset: ThemePreset;
 }
 
+export const DEFAULT_PLAN: PomodoroPlan = {
+  focusMinutes: 25,
+  shortBreakMinutes: 5,
+  longBreakMinutes: 15,
+  sessionCount: 4,
+  breakCount: 3,
+  longBreakEvery: 4,
+  autoStartNext: false,
+  notifyOnEnd: true,
+  customSequenceEnabled: false,
+  customSequence: [
+    { id: '1', type: 'focus', minutes: 25 },
+    { id: '2', type: 'short', minutes: 5 },
+    { id: '3', type: 'focus', minutes: 25 },
+    { id: '4', type: 'short', minutes: 5 },
+    { id: '5', type: 'focus', minutes: 25 },
+    { id: '6', type: 'short', minutes: 5 },
+    { id: '7', type: 'focus', minutes: 25 },
+    { id: '8', type: 'long', minutes: 15 },
+  ],
+  visualClockStyle: 'ring',
+  themePreset: 'system',
+};
+
+// Pure sequence builder - Single Source of Truth
+export function buildSequence(plan: PomodoroPlan): PomodoroBlock[] {
+  if (plan.customSequenceEnabled && plan.customSequence.length > 0) {
+    return plan.customSequence;
+  }
+
+  const blocks: PomodoroBlock[] = [];
+  const totalSessions = plan.sessionCount === 'unlimited' ? 12 : Math.max(1, plan.sessionCount);
+  const maxBreaks = Math.min(plan.breakCount, totalSessions - 1);
+  const longEvery = plan.longBreakEvery === 'never' ? 0 : plan.longBreakEvery;
+
+  for (let i = 1; i <= totalSessions; i++) {
+    blocks.push({
+      id: `block_f_${i}`,
+      type: 'focus',
+      minutes: plan.focusMinutes,
+    });
+
+    if (i < totalSessions && i <= maxBreaks) {
+      const isLong = longEvery > 0 && i % longEvery === 0;
+      blocks.push({
+        id: `block_b_${i}`,
+        type: isLong ? 'long' : 'short',
+        minutes: isLong ? plan.longBreakMinutes : plan.shortBreakMinutes,
+      });
+    }
+  }
+
+  return blocks;
+}
+
+export function computeTotalPlanMinutes(plan: PomodoroPlan): number {
+  const blocks = buildSequence(plan);
+  return blocks.reduce((acc, b) => acc + b.minutes, 0);
+}
+
 export interface TimerState {
-  // Navigation
-  activeTab: NavigationTab;
-  setActiveTab: (tab: NavigationTab) => void;
+  // Navigation: 'timer' or 'plan'
+  currentScreen: 'timer' | 'plan';
+  setCurrentScreen: (screen: 'timer' | 'plan') => void;
 
-  // Settings
-  settings: TimerSettings;
+  // Plan
+  plan: PomodoroPlan;
+  activeBlocks: PomodoroBlock[];
+  currentBlockIndex: number;
 
-  // Tasks
-  tasks: TaskItem[];
-  activeTaskId: string;
-  setActiveTaskId: (id: string) => void;
-  addTask: (name: string, color?: string) => void;
-  deleteTask: (id: string) => void;
-
-  // Runtime State
+  // Runtime Timer State (Timestamp SSOT)
   status: TimerStatus;
-  stage: StageType;
-  cycleCount: number; // 1 to longBreakInterval
   targetEndTime: number | null;
   remainingMs: number;
   totalDurationMs: number;
-
-  // History & Telemetry
-  history: SessionHistoryItem[];
-  stats: {
-    totalFocusMinutes: number;
-    completedSessions: number;
-    streakDays: number;
-  };
 
   // Actions
   start: () => Promise<void>;
   pause: () => void;
   resume: () => void;
-  stop: () => void;
+  reset: () => void;
   skip: () => void;
-  extendFiveMinutes: () => void;
-  setStage: (stage: StageType) => void;
-  setCurrentDurationMin: (minutes: number) => void;
   tick: () => void;
   reconcile: () => void;
-  updateSettings: (newSettings: Partial<TimerSettings>) => void;
-  clearHistory: () => void;
+
+  // Plan Updates
+  updatePlan: (newPlan: Partial<PomodoroPlan>) => void;
+  resetPlanToDefaults: () => void;
   loadPersistedState: () => Promise<void>;
 }
 
-const DEFAULT_SETTINGS: TimerSettings = {
-  focusDurationMin: 25,
-  shortBreakDurationMin: 5,
-  longBreakDurationMin: 15,
-  longBreakInterval: 4,
-  autoStartBreaks: true,
-  autoStartFocus: false,
-  hapticsEnabled: true,
-  soundEnabled: true,
-  keepScreenAwake: true,
-  dailyGoalSessions: 6,
-  visualClockStyle: 'ring',
-  themePreset: 'system',
-};
-
-const DEFAULT_TASKS: TaskItem[] = [
-  { id: 'task_1', name: 'Deep Work', color: '#FF453A', completedSessions: 3 },
-  { id: 'task_2', name: 'Code Review', color: '#0A84FF', completedSessions: 1 },
-  { id: 'task_3', name: 'Study & Reading', color: '#30D158', completedSessions: 0 },
-];
-
-const STORAGE_KEY = '@chronocraft_pomodoro_v2';
+const STORAGE_KEY = '@chronocraft_pomodoro_plan_v3';
 
 export const useTimerStore = create<TimerState>((set, get) => {
-  const getDurationForStage = (stage: StageType, settings: TimerSettings) => {
-    switch (stage) {
-      case 'focus':
-        return settings.focusDurationMin * 60 * 1000;
-      case 'shortBreak':
-        return settings.shortBreakDurationMin * 60 * 1000;
-      case 'longBreak':
-        return settings.longBreakDurationMin * 60 * 1000;
-    }
-  };
-
   const persist = async () => {
     try {
-      const { settings, stats, tasks, history, cycleCount } = get();
+      const { plan, currentBlockIndex, status, targetEndTime, remainingMs, totalDurationMs } = get();
       await AsyncStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ settings, stats, tasks, history, cycleCount })
+        JSON.stringify({ plan, currentBlockIndex, status, targetEndTime, remainingMs, totalDurationMs })
       );
     } catch {}
   };
 
-  return {
-    activeTab: 'timer',
-    setActiveTab: (tab) => set({ activeTab: tab }),
+  const initialBlocks = buildSequence(DEFAULT_PLAN);
+  const firstBlockDuration = (initialBlocks[0]?.minutes || 25) * 60 * 1000;
 
-    settings: DEFAULT_SETTINGS,
-    tasks: DEFAULT_TASKS,
-    activeTaskId: 'task_1',
+  return {
+    currentScreen: 'timer',
+    setCurrentScreen: (screen) => set({ currentScreen: screen }),
+
+    plan: DEFAULT_PLAN,
+    activeBlocks: initialBlocks,
+    currentBlockIndex: 0,
 
     status: 'idle',
-    stage: 'focus',
-    cycleCount: 1,
     targetEndTime: null,
-    remainingMs: DEFAULT_SETTINGS.focusDurationMin * 60 * 1000,
-    totalDurationMs: DEFAULT_SETTINGS.focusDurationMin * 60 * 1000,
-
-    history: [],
-    stats: {
-      totalFocusMinutes: 75,
-      completedSessions: 3,
-      streakDays: 1,
-    },
+    remainingMs: firstBlockDuration,
+    totalDurationMs: firstBlockDuration,
 
     loadPersistedState: async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (raw) {
           const parsed = JSON.parse(raw);
-          const settings = { ...DEFAULT_SETTINGS, ...(parsed.settings || {}) };
-          const stageDuration = getDurationForStage('focus', settings);
+          const plan: PomodoroPlan = { ...DEFAULT_PLAN, ...(parsed.plan || {}) };
+          const blocks = buildSequence(plan);
+          const blockIndex = Math.min(parsed.currentBlockIndex || 0, Math.max(0, blocks.length - 1));
+          const currentBlock = blocks[blockIndex] || blocks[0];
+          const blockDurationMs = (currentBlock?.minutes || 25) * 60 * 1000;
+
+          // Check if timer was running when app was closed
+          let status: TimerStatus = parsed.status === 'paused' ? 'paused' : 'idle';
+          let remainingMs = parsed.remainingMs || blockDurationMs;
+          let targetEndTime = parsed.targetEndTime || null;
+
+          if (parsed.status === 'running' && targetEndTime) {
+            const now = Date.now();
+            if (now < targetEndTime) {
+              status = 'running';
+              remainingMs = targetEndTime - now;
+            } else {
+              // Completed while closed
+              status = 'idle';
+              remainingMs = blockDurationMs;
+              targetEndTime = null;
+            }
+          }
+
           set({
-            settings,
-            stats: parsed.stats || { totalFocusMinutes: 75, completedSessions: 3, streakDays: 1 },
-            tasks: parsed.tasks?.length ? parsed.tasks : DEFAULT_TASKS,
-            history: parsed.history || [],
-            cycleCount: parsed.cycleCount || 1,
-            remainingMs: stageDuration,
-            totalDurationMs: stageDuration,
+            plan,
+            activeBlocks: blocks,
+            currentBlockIndex: blockIndex,
+            status,
+            targetEndTime,
+            remainingMs,
+            totalDurationMs: parsed.totalDurationMs || blockDurationMs,
           });
         }
       } catch {}
     },
 
-    setActiveTaskId: (id) => {
-      set({ activeTaskId: id });
+    updatePlan: (newPlanPartial) => {
+      const current = get();
+      const updatedPlan: PomodoroPlan = { ...current.plan, ...newPlanPartial };
+
+      // Validate breaks count <= sessions count
+      if (updatedPlan.sessionCount !== 'unlimited') {
+        updatedPlan.breakCount = Math.min(updatedPlan.breakCount, Math.max(0, updatedPlan.sessionCount - 1));
+      }
+
+      const newBlocks = buildSequence(updatedPlan);
+
+      // If timer is idle, apply new duration immediately to current block
+      if (current.status === 'idle') {
+        const safeIdx = Math.min(current.currentBlockIndex, Math.max(0, newBlocks.length - 1));
+        const block = newBlocks[safeIdx] || newBlocks[0];
+        const durationMs = (block?.minutes || 25) * 60 * 1000;
+        set({
+          plan: updatedPlan,
+          activeBlocks: newBlocks,
+          currentBlockIndex: safeIdx,
+          remainingMs: durationMs,
+          totalDurationMs: durationMs,
+        });
+      } else {
+        // If timer is running or paused, keep current block running; changes apply to upcoming blocks
+        set({
+          plan: updatedPlan,
+          activeBlocks: newBlocks,
+        });
+      }
+
       persist();
     },
 
-    addTask: (name, color = '#FF453A') => {
-      const newTask: TaskItem = {
-        id: `task_${Date.now()}`,
-        name: name.trim() || 'Untitled Task',
-        color,
-        completedSessions: 0,
-      };
-      set((state) => ({
-        tasks: [newTask, ...state.tasks],
-        activeTaskId: newTask.id,
-      }));
-      persist();
-    },
-
-    deleteTask: (id) => {
-      set((state) => {
-        const remaining = state.tasks.filter((t) => t.id !== id);
-        return {
-          tasks: remaining,
-          activeTaskId: remaining[0]?.id || '',
-        };
+    resetPlanToDefaults: () => {
+      const newBlocks = buildSequence(DEFAULT_PLAN);
+      const durationMs = (newBlocks[0]?.minutes || 25) * 60 * 1000;
+      set({
+        plan: DEFAULT_PLAN,
+        activeBlocks: newBlocks,
+        currentBlockIndex: 0,
+        status: 'idle',
+        targetEndTime: null,
+        remainingMs: durationMs,
+        totalDurationMs: durationMs,
       });
+      NotificationService.cancelOngoing();
       persist();
     },
 
     start: async () => {
-      const { stage, settings, remainingMs, tasks, activeTaskId } = get();
+      const { remainingMs, activeBlocks, currentBlockIndex, plan } = get();
+      const currentBlock = activeBlocks[currentBlockIndex] || activeBlocks[0];
       const now = Date.now();
       const targetEndTime = now + remainingMs;
 
@@ -213,21 +252,17 @@ export const useTimerStore = create<TimerState>((set, get) => {
         targetEndTime,
       });
 
-      if (settings.hapticsEnabled) {
-        HapticService.toggleTimer();
-      }
+      HapticService.toggleTimer();
 
-      const activeTask = tasks.find((t) => t.id === activeTaskId)?.name || 'Focus Session';
-      const stageLabels: Record<StageType, string> = {
-        focus: activeTask,
-        shortBreak: 'Short Break',
-        longBreak: 'Long Break',
-      };
-      NotificationService.showOngoing(stageLabels[stage], targetEndTime);
+      const blockLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Short Break';
+      if (plan.notifyOnEnd) {
+        NotificationService.showOngoing(blockLabel, targetEndTime);
+      }
+      persist();
     },
 
     pause: () => {
-      const { targetEndTime, settings } = get();
+      const { targetEndTime } = get();
       if (!targetEndTime) return;
 
       const remainingMs = Math.max(0, targetEndTime - Date.now());
@@ -237,137 +272,63 @@ export const useTimerStore = create<TimerState>((set, get) => {
         remainingMs,
       });
 
-      if (settings.hapticsEnabled) {
-        HapticService.toggleTimer();
-      }
-
+      HapticService.toggleTimer();
       NotificationService.cancelOngoing();
+      persist();
     },
 
     resume: () => {
       get().start();
     },
 
-    stop: () => {
-      const { stage, settings } = get();
-      const duration = getDurationForStage(stage, settings);
+    reset: () => {
+      const { activeBlocks, currentBlockIndex } = get();
+      const currentBlock = activeBlocks[currentBlockIndex] || activeBlocks[0];
+      const durationMs = (currentBlock?.minutes || 25) * 60 * 1000;
+
       set({
         status: 'idle',
         targetEndTime: null,
-        remainingMs: duration,
-        totalDurationMs: duration,
+        remainingMs: durationMs,
+        totalDurationMs: durationMs,
       });
 
-      if (settings.hapticsEnabled) {
-        HapticService.buttonPress();
-      }
-
+      HapticService.buttonPress();
       NotificationService.cancelOngoing();
-    },
-
-    skip: () => {
-      const { stage, cycleCount, settings } = get();
-      NotificationService.cancelOngoing();
-
-      let nextStage: StageType = 'focus';
-      let nextCycle = cycleCount;
-
-      if (stage === 'focus') {
-        if (cycleCount >= settings.longBreakInterval) {
-          nextStage = 'longBreak';
-        } else {
-          nextStage = 'shortBreak';
-        }
-      } else {
-        nextStage = 'focus';
-        if (stage === 'longBreak') {
-          nextCycle = 1;
-        } else {
-          nextCycle = cycleCount + 1;
-        }
-      }
-
-      const duration = getDurationForStage(nextStage, settings);
-      set({
-        stage: nextStage,
-        cycleCount: nextCycle,
-        status: 'idle',
-        targetEndTime: null,
-        remainingMs: duration,
-        totalDurationMs: duration,
-      });
-
-      if (settings.hapticsEnabled) {
-        HapticService.stageComplete();
-      }
-    },
-
-    extendFiveMinutes: () => {
-      const extraMs = 5 * 60 * 1000;
-      const { status, targetEndTime, remainingMs, totalDurationMs, stage, settings, tasks, activeTaskId } = get();
-
-      if (status === 'running' && targetEndTime) {
-        const newTarget = targetEndTime + extraMs;
-        set({
-          targetEndTime: newTarget,
-          remainingMs: Math.max(0, newTarget - Date.now()),
-          totalDurationMs: totalDurationMs + extraMs,
-        });
-
-        const activeTask = tasks.find((t) => t.id === activeTaskId)?.name || 'Focus Session';
-        const stageLabels: Record<StageType, string> = {
-          focus: activeTask,
-          shortBreak: 'Short Break',
-          longBreak: 'Long Break',
-        };
-        NotificationService.showOngoing(stageLabels[stage], newTarget);
-      } else {
-        set({
-          remainingMs: remainingMs + extraMs,
-          totalDurationMs: totalDurationMs + extraMs,
-        });
-      }
-
-      if (settings.hapticsEnabled) {
-        HapticService.extendTime();
-      }
-    },
-
-    setStage: (newStage) => {
-      const { settings } = get();
-      const duration = getDurationForStage(newStage, settings);
-      set({
-        stage: newStage,
-        status: 'idle',
-        targetEndTime: null,
-        remainingMs: duration,
-        totalDurationMs: duration,
-      });
-      NotificationService.cancelOngoing();
-    },
-
-    setCurrentDurationMin: (minutes) => {
-      const ms = minutes * 60 * 1000;
-      const { stage, settings } = get();
-      const updatedSettings = { ...settings };
-
-      if (stage === 'focus') updatedSettings.focusDurationMin = minutes;
-      else if (stage === 'shortBreak') updatedSettings.shortBreakDurationMin = minutes;
-      else if (stage === 'longBreak') updatedSettings.longBreakDurationMin = minutes;
-
-      set({
-        settings: updatedSettings,
-        remainingMs: ms,
-        totalDurationMs: ms,
-        status: 'idle',
-        targetEndTime: null,
-      });
-
       persist();
     },
 
+    skip: () => {
+      const { activeBlocks, currentBlockIndex, plan } = get();
+      NotificationService.cancelOngoing();
+
+      let nextIndex = currentBlockIndex + 1;
+      if (nextIndex >= activeBlocks.length) {
+        // Cycle finished, loop back to start
+        nextIndex = 0;
+      }
+
+      const nextBlock = activeBlocks[nextIndex] || activeBlocks[0];
+      const durationMs = (nextBlock?.minutes || 25) * 60 * 1000;
+
+      set({
+        currentBlockIndex: nextIndex,
+        status: 'idle',
+        targetEndTime: null,
+        remainingMs: durationMs,
+        totalDurationMs: durationMs,
+      });
+
+      HapticService.stageComplete();
+      persist();
+
+      if (plan.autoStartNext) {
+        setTimeout(() => get().start(), 500);
+      }
+    },
+
     tick: () => {
-      const { status, targetEndTime, stage, cycleCount, settings, stats, tasks, activeTaskId, totalDurationMs, history } = get();
+      const { status, targetEndTime, activeBlocks, currentBlockIndex, plan } = get();
       if (status !== 'running' || !targetEndTime) return;
 
       const now = Date.now();
@@ -375,77 +336,32 @@ export const useTimerStore = create<TimerState>((set, get) => {
 
       if (remainingMs <= 0) {
         NotificationService.cancelOngoing();
+        HapticService.stageComplete();
 
-        if (settings.hapticsEnabled) {
-          HapticService.stageComplete();
+        const currentBlock = activeBlocks[currentBlockIndex];
+        const nextIndex = currentBlockIndex + 1;
+        const isCycleFinished = nextIndex >= activeBlocks.length;
+        const resolvedNextIndex = isCycleFinished ? 0 : nextIndex;
+        const nextBlock = activeBlocks[resolvedNextIndex] || activeBlocks[0];
+        const durationMs = (nextBlock?.minutes || 25) * 60 * 1000;
+
+        if (plan.notifyOnEnd) {
+          const currentLabel = currentBlock?.type === 'focus' ? 'Focus Session' : 'Break';
+          const nextLabel = nextBlock?.type === 'focus' ? 'Focus Session' : 'Break';
+          NotificationService.showCompletionAlarm(currentLabel, nextLabel);
         }
-
-        let nextStage: StageType = 'focus';
-        let nextCycle = cycleCount;
-        let newStats = { ...stats };
-        let updatedTasks = [...tasks];
-        const activeTask = tasks.find((t) => t.id === activeTaskId);
-        const taskName = activeTask?.name || 'Focus Session';
-
-        if (stage === 'focus') {
-          const sessionMinutes = Math.round(totalDurationMs / 60000);
-          newStats.completedSessions += 1;
-          newStats.totalFocusMinutes += sessionMinutes;
-
-          if (activeTask) {
-            updatedTasks = tasks.map((t) =>
-              t.id === activeTaskId ? { ...t, completedSessions: t.completedSessions + 1 } : t
-            );
-          }
-
-          if (cycleCount >= settings.longBreakInterval) {
-            nextStage = 'longBreak';
-          } else {
-            nextStage = 'shortBreak';
-          }
-        } else {
-          nextStage = 'focus';
-          if (stage === 'longBreak') {
-            nextCycle = 1;
-          } else {
-            nextCycle = cycleCount + 1;
-          }
-        }
-
-        const nextDuration = getDurationForStage(nextStage, settings);
-
-        const newHistoryItem: SessionHistoryItem = {
-          id: `hist_${Date.now()}`,
-          stage,
-          durationMinutes: Math.round(totalDurationMs / 60000),
-          completedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          taskName,
-        };
-
-        NotificationService.showCompletionAlarm(
-          stage === 'focus' ? taskName : 'Break',
-          nextStage === 'focus' ? 'Focus Session' : 'Break'
-        );
 
         set({
-          stage: nextStage,
-          cycleCount: nextCycle,
-          status: 'completed',
+          currentBlockIndex: resolvedNextIndex,
+          status: 'idle',
           targetEndTime: null,
-          remainingMs: nextDuration,
-          totalDurationMs: nextDuration,
-          stats: newStats,
-          tasks: updatedTasks,
-          history: [newHistoryItem, ...history.slice(0, 49)],
+          remainingMs: durationMs,
+          totalDurationMs: durationMs,
         });
 
         persist();
 
-        const shouldAutoStart =
-          (nextStage !== 'focus' && settings.autoStartBreaks) ||
-          (nextStage === 'focus' && settings.autoStartFocus);
-
-        if (shouldAutoStart) {
+        if (plan.autoStartNext && !isCycleFinished) {
           setTimeout(() => get().start(), 600);
         }
       } else {
@@ -463,29 +379,6 @@ export const useTimerStore = create<TimerState>((set, get) => {
           set({ remainingMs: Math.max(0, targetEndTime - now) });
         }
       }
-    },
-
-    updateSettings: (newSettings) => {
-      const merged = { ...get().settings, ...newSettings };
-      const { stage, status } = get();
-      let updateObj: any = { settings: merged };
-
-      if (status === 'idle') {
-        const duration = getDurationForStage(stage, merged);
-        updateObj.remainingMs = duration;
-        updateObj.totalDurationMs = duration;
-      }
-
-      set(updateObj);
-      persist();
-    },
-
-    clearHistory: () => {
-      set({
-        history: [],
-        stats: { totalFocusMinutes: 0, completedSessions: 0, streakDays: 1 },
-      });
-      persist();
     },
   };
 });
