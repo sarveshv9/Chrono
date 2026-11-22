@@ -1,20 +1,32 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, AppState, AppStateStatus, View } from 'react-native';
+import { StyleSheet, AppState, AppStateStatus, SafeAreaView, View, useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { useTimerStore } from '@/store/useTimerStore';
 import { NotificationService } from '@/services/notificationService';
-import { ZenCanvas } from '@/components/ZenCanvas';
+import { resolveThemeColors } from '@/theme/tokens';
+import { BottomTabBar } from '@/components/navigation/BottomTabBar';
+import { TimerTab } from '@/components/tabs/TimerTab';
+import { TasksTab } from '@/components/tabs/TasksTab';
+import { StatsTab } from '@/components/tabs/StatsTab';
+import { SettingsTab } from '@/components/tabs/SettingsTab';
 
 export default function App() {
   const tick = useTimerStore((state) => state.tick);
   const reconcile = useTimerStore((state) => state.reconcile);
   const loadPersistedState = useTimerStore((state) => state.loadPersistedState);
   const status = useTimerStore((state) => state.status);
+  const activeTab = useTimerStore((state) => state.activeTab);
+  const themePreset = useTimerStore((state) => state.settings.themePreset);
+
+  const systemColorScheme = useColorScheme();
+  const theme = resolveThemeColors(themePreset, systemColorScheme);
+  const colors = theme.colors;
 
   // Initialize notifications and rehydrate state
   useEffect(() => {
     NotificationService.init();
     loadPersistedState();
-  }, []);
+  }, [loadPersistedState]);
 
   // Foreground tick timer loop
   useEffect(() => {
@@ -40,14 +52,26 @@ export default function App() {
   }, [reconcile]);
 
   return (
-    <View style={styles.container}>
-      <ZenCanvas />
-    </View>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <StatusBar style={theme.isDark ? 'light' : 'dark'} />
+
+      <View style={styles.content}>
+        {activeTab === 'timer' && <TimerTab colors={colors} />}
+        {activeTab === 'tasks' && <TasksTab colors={colors} />}
+        {activeTab === 'stats' && <StatsTab colors={colors} />}
+        {activeTab === 'settings' && <SettingsTab colors={colors} />}
+      </View>
+
+      <BottomTabBar colors={colors} />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  safeArea: {
+    flex: 1,
+  },
+  content: {
     flex: 1,
   },
 });

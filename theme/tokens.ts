@@ -1,4 +1,4 @@
-export type ThemePreset = 'oled' | 'papyrus' | 'neon' | 'matcha';
+export type ThemePreset = 'system' | 'oled' | 'papyrus' | 'neon' | 'matcha';
 
 export interface ThemeColors {
   background: string;
@@ -14,45 +14,48 @@ export interface ThemeColors {
   progressTrack: string;
   progressFill: string;
   cardBg: string;
+  danger: string;
 }
 
-export const THEMES: Record<ThemePreset, { name: string; isDark: boolean; colors: ThemeColors }> = {
+export const THEME_DEFINITIONS: Record<Exclude<ThemePreset, 'system'>, { name: string; isDark: boolean; colors: ThemeColors }> = {
   oled: {
     name: 'OLED Obsidian',
     isDark: true,
     colors: {
       background: '#000000',
       surface: '#111113',
-      surfaceBorder: '#222226',
+      surfaceBorder: '#242429',
       textPrimary: '#F5F5F7',
-      textSecondary: '#8E8E93',
-      textMuted: '#545458',
+      textSecondary: '#A1A1A6',
+      textMuted: '#636366',
       accentFocus: '#FF453A',
       accentShortBreak: '#30D158',
       accentLongBreak: '#0A84FF',
       accentActive: '#FF453A',
       progressTrack: '#1C1C1E',
       progressFill: '#FF453A',
-      cardBg: '#161618',
+      cardBg: '#18181B',
+      danger: '#FF3B30',
     },
   },
   papyrus: {
     name: 'Warm Papyrus',
     isDark: false,
     colors: {
-      background: '#FBF8F2',
-      surface: '#F2EDE2',
-      surfaceBorder: '#E6DECE',
-      textPrimary: '#2C2825',
-      textSecondary: '#70665D',
-      textMuted: '#A0978C',
-      accentFocus: '#B85D36',
-      accentShortBreak: '#4B7B61',
-      accentLongBreak: '#2A5D8A',
-      accentActive: '#B85D36',
-      progressTrack: '#E8E1D3',
-      progressFill: '#B85D36',
-      cardBg: '#F5EFE4',
+      background: '#F9F6F0',
+      surface: '#F0EBE0',
+      surfaceBorder: '#DFD7C8',
+      textPrimary: '#201A15',
+      textSecondary: '#5A5046',
+      textMuted: '#8C8276',
+      accentFocus: '#C2542B',
+      accentShortBreak: '#386B52',
+      accentLongBreak: '#1F537E',
+      accentActive: '#C2542B',
+      progressTrack: '#E5DED0',
+      progressFill: '#C2542B',
+      cardBg: '#ECE4D6',
+      danger: '#D93829',
     },
   },
   neon: {
@@ -60,37 +63,48 @@ export const THEMES: Record<ThemePreset, { name: string; isDark: boolean; colors
     isDark: true,
     colors: {
       background: '#080B10',
-      surface: '#101522',
+      surface: '#0F1420',
       surfaceBorder: '#1E2840',
       textPrimary: '#F0F6FC',
-      textSecondary: '#8B949E',
-      textMuted: '#484F58',
+      textSecondary: '#9CA3AF',
+      textMuted: '#4B5563',
       accentFocus: '#FF0055',
       accentShortBreak: '#00FFCC',
       accentLongBreak: '#7928CA',
       accentActive: '#FF0055',
-      progressTrack: '#161B22',
+      progressTrack: '#161B26',
       progressFill: '#00FFCC',
-      cardBg: '#0F1420',
+      cardBg: '#131A2A',
+      danger: '#FF2E54',
     },
   },
   matcha: {
     name: 'Matcha Calm',
     isDark: true,
     colors: {
-      background: '#131914',
-      surface: '#1B241D',
-      surfaceBorder: '#27342A',
-      textPrimary: '#E2EBE4',
-      textSecondary: '#8B9E8F',
-      textMuted: '#586A5C',
-      accentFocus: '#7BC28C',
-      accentShortBreak: '#C7A57F',
-      accentLongBreak: '#5E9770',
-      accentActive: '#7BC28C',
-      progressTrack: '#1E2B20',
-      progressFill: '#7BC28C',
-      cardBg: '#172219',
+      background: '#111813',
+      surface: '#18221B',
+      surfaceBorder: '#27382C',
+      textPrimary: '#E8F1EA',
+      textSecondary: '#9BB2A0',
+      textMuted: '#5F7564',
+      accentFocus: '#69B67C',
+      accentShortBreak: '#D1AC84',
+      accentLongBreak: '#529668',
+      accentActive: '#69B67C',
+      progressTrack: '#1E2B21',
+      progressFill: '#69B67C',
+      cardBg: '#1D2A20',
+      danger: '#E5534B',
     },
   },
 };
+
+export function resolveThemeColors(preset: ThemePreset, systemColorScheme: 'light' | 'dark' | null | undefined): { name: string; isDark: boolean; colors: ThemeColors } {
+  if (preset === 'system') {
+    return systemColorScheme === 'light'
+      ? { ...THEME_DEFINITIONS.papyrus, name: 'Follow System (Light)' }
+      : { ...THEME_DEFINITIONS.oled, name: 'Follow System (Dark)' };
+  }
+  return THEME_DEFINITIONS[preset];
+}
