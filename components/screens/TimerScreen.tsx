@@ -101,23 +101,42 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
   const seconds = totalSeconds % 60;
   const timeFormatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
+  const stageTypeLabel =
+    currentBlock.type === 'focus'
+      ? 'FOCUS'
+      : currentBlock.type === 'long'
+      ? 'LONG BREAK'
+      : 'SHORT BREAK';
+
   const renderProgressDots = () => {
     if (plan.sessionCount === 'unlimited') return null;
+
+    const displayBlocks = activeBlocks.slice(0, 16);
+
     return (
       <View style={styles.dotsRow}>
-        {focusBlocks.map((_, idx) => {
-          const isFilled = idx < currentFocusIndex;
-          const isCurrent = idx === currentFocusIndex - 1 && currentBlock.type === 'focus';
-          const pillWidth = isCurrent ? 22 : isFilled ? 14 : 6;
+        {displayBlocks.map((block, idx) => {
+          const isCompleted = idx < currentBlockIndex;
+          const isCurrent = idx === currentBlockIndex;
+          const blockColor =
+            block.type === 'focus'
+              ? colors.accentFocus
+              : block.type === 'long'
+              ? colors.accentLongBreak
+              : colors.accentShortBreak;
+
+          const pillWidth = isCurrent ? 22 : isCompleted ? (block.type === 'focus' ? 14 : 8) : 6;
+          const pillColor = isCurrent ? stageAccentColor : isCompleted ? blockColor : colors.progressTrack;
+
           return (
             <View
-              key={idx}
+              key={block.id || idx}
               style={[
                 styles.dotPill,
                 {
                   width: pillWidth,
-                  backgroundColor: isFilled || isCurrent ? colors.accentFocus : colors.progressTrack,
-                  opacity: isFilled || isCurrent ? 1 : 0.4,
+                  backgroundColor: pillColor,
+                  opacity: isCompleted || isCurrent ? 1 : 0.4,
                 },
               ]}
             />
@@ -237,10 +256,10 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
               setDurationModalOpen(true);
             }}
             accessibilityRole="button"
-            accessibilityLabel={`Change duration for this session, currently ${currentBlock.minutes} minutes`}
+            accessibilityLabel={`Change duration for this ${stageTypeLabel.toLowerCase()} session, currently ${currentBlock.minutes} minutes`}
           >
             <Text style={[styles.quickDurationText, { color: colors.textSecondary }]}>
-              {currentBlock.minutes} MIN FOCUS <Text style={{ color: stageAccentColor }}>▾</Text>
+              {currentBlock.minutes} MIN {stageTypeLabel} <Text style={{ color: stageAccentColor }}>▾</Text>
             </Text>
           </TouchableOpacity>
         )}
