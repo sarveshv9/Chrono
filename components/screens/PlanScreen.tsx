@@ -155,7 +155,6 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
           HapticService.buttonPress();
           onValueChange(val);
         }}
-        thumbColor={value ? colors.accentFocus : '#888'}
       />
     </View>
   );
