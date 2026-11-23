@@ -1,4 +1,4 @@
-# STAGES & EXECUTION ROADMAP: ChronoCraft Pomodoro (Android)
+# STAGES & EXECUTION ROADMAP: Chrono Pomodoro (Android)
 
 **Platform:** Android Exclusive (Android 10+ / API 29 through Android 15+, Expo SDK 52+ with Prebuild, New Architecture)  
 **Deliverable Status:** Master Project Stages, Engineering Milestones & Quality Gates  

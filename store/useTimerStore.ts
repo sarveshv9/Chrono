@@ -122,7 +122,8 @@ export interface TimerState {
   loadPersistedState: () => Promise<void>;
 }
 
-const STORAGE_KEY = '@chronocraft_pomodoro_plan_v3';
+const STORAGE_KEY = '@chrono_pomodoro_plan_v3';
+const LEGACY_STORAGE_KEY = '@chronocraft_pomodoro_plan_v3';
 
 export const useTimerStore = create<TimerState>((set, get) => {
   const persist = async () => {
@@ -153,7 +154,10 @@ export const useTimerStore = create<TimerState>((set, get) => {
 
     loadPersistedState: async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        let raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+          raw = await AsyncStorage.getItem(LEGACY_STORAGE_KEY);
+        }
         if (raw) {
           const parsed = JSON.parse(raw);
           const plan: PomodoroPlan = { ...DEFAULT_PLAN, ...(parsed.plan || {}) };

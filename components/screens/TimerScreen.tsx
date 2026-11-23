@@ -183,7 +183,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
     <View style={styles.container}>
       {/* Top Header Rail: Brand & Settings Icon */}
       <View style={styles.header}>
-        <Text style={[styles.brandTitle, { color: colors.textMuted }]}>CHRONOCRAFT</Text>
+        <Text style={[styles.brandTitle, { color: colors.textMuted }]}>CHRONO</Text>
         <TouchableOpacity
           style={[styles.settingsBtn, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.surfaceBorder }]}
           onPress={() => {

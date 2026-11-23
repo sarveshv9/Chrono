@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary & Android Stack Selection
 
-ChronoCraft is engineered as a high-performance, battery-efficient, Android-native productivity engine built on React Native.
+Chrono is engineered as a high-performance, battery-efficient, Android-native productivity engine built on React Native.
 
 ```mermaid
 graph TD
@@ -90,7 +90,7 @@ $$\text{remainingMs} = \max(0, \text{targetEndTime} - \text{Date.now()})$$
 ## 3. Android Notification & Background Services Architecture
 
 ### 3.1 Foreground Service & Ongoing Notification
-When a timer starts, ChronoCraft triggers an Android Foreground Service with an ongoing notification in a dedicated notification channel:
+When a timer starts, Chrono triggers an Android Foreground Service with an ongoing notification in a dedicated notification channel:
 
 ```typescript
 import notifee, { AndroidImportance, AndroidColor } from '@notifee/react-native';
@@ -127,7 +127,7 @@ export async function startTimerForegroundService(targetEndTime: number, stageNa
 **Key Advantage:** The Android System UI manages the chronometer display directly on-chip with **zero JavaScript thread execution and near-zero battery drain**.
 
 ### 3.2 Exact Completion Alarm
-Simultaneously, ChronoCraft schedules an exact trigger alert for when `targetEndTime` is reached:
+Simultaneously, Chrono schedules an exact trigger alert for when `targetEndTime` is reached:
 - Uses `SCHEDULE_EXACT_ALARM` / `USE_EXACT_ALARM` permissions via Android `AlarmManager`.
 - Fires a high-importance completion notification with sound, vibration, and actionable buttons: `[ Start Break ]`, `[ +5m Grace ]`.
 
@@ -158,7 +158,7 @@ Using Android Jetpack Compose Glance (`androidx.glance.appwidget`), widgets are 
 
 ```kotlin
 // Android Jetpack Compose Glance Widget implementation
-class ChronoCraftWidget : GlanceAppWidget() {
+class ChronoWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val mmkv = MMKV.mmkvWithID("pomodoro_shared", MMKV.MULTI_PROCESS_MODE)
         val stageName = mmkv.decodeString("currentStageName", "Focus")
@@ -186,7 +186,7 @@ class ChronoCraftWidget : GlanceAppWidget() {
 
 ## 5. Android Quick Settings Tile (`FocusTileService`)
 
-ChronoCraft provides an Android Quick Settings Tile so users can manage their focus session directly from the pull-down shade without opening the application:
+Chrono provides an Android Quick Settings Tile so users can manage their focus session directly from the pull-down shade without opening the application:
 
 ```kotlin
 class FocusTileService : TileService() {

@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "ChronoCraft",
-    "slug": "chronocraft",
+    "name": "Chrono",
+    "slug": "chrono",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "newArchEnabled": false,
     "android": {
-      "package": "com.chronocraft.pomodoro",
+      "package": "com.chrono.pomodoro",
       "adaptiveIcon": {
         "backgroundColor": "#0B0C10",
         "foregroundImage": "./assets/android-icon-foreground.png"

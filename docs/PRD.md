@@ -1,5 +1,5 @@
 # PRODUCT REQUIREMENTS DOCUMENT (PRD)
-## Project: ChronoCraft — Infinitely Customizable Pomodoro App
+## Project: Chrono — Infinitely Customizable Pomodoro App
 **Platform:** Android Exclusive (Android 10+ / API 29 through Android 15+, Expo SDK 52+ with Prebuild / New Architecture)  
 **Target Audience:** Knowledge workers, software engineers, students, ADHD focus seekers, creative professionals  
 **Version:** 1.0.0-ANDROID  
@@ -12,7 +12,7 @@
 ### 1.1 Vision Statement
 Most time-management apps enforce a rigid paradigm: either they are barebones 25/5 timers with hardcoded red accents, or bloated gamified productivity tools encumbered by intrusive social feeds and paywalled timer adjustments.
 
-**ChronoCraft** is built on a distinct design philosophy: **Zero Friction, Infinite Personalization, Pure Focus**. Designed exclusively for the Android ecosystem, it is an ultra-minimalist yet 100% customizable interval and focus engine. Users can tailor every dimension of their productivity ritual—from bespoke sequence stages (e.g., 52m Deep Work → 17m Rest → 3m Mobility), audio soundscapes, and clock visuals (Minimalist Digital, 3D Flip, Zen Breathing, Smooth Ring), to custom OLED true-black palettes, Material You (Monet) dynamic color theming, Android Haptic feedback, Quick Settings Tiles, and interactive Jetpack Compose Glance home screen widgets.
+**Chrono** is built on a distinct design philosophy: **Zero Friction, Infinite Personalization, Pure Focus**. Designed exclusively for the Android ecosystem, it is an ultra-minimalist yet 100% customizable interval and focus engine. Users can tailor every dimension of their productivity ritual—from bespoke sequence stages (e.g., 52m Deep Work → 17m Rest → 3m Mobility), audio soundscapes, and clock visuals (Minimalist Digital, 3D Flip, Zen Breathing, Smooth Ring), to custom OLED true-black palettes, Material You (Monet) dynamic color theming, Android Haptic feedback, Quick Settings Tiles, and interactive Jetpack Compose Glance home screen widgets.
 
 ### 1.2 Core Value Propositions
 1. **Unbounded Sequence Composition:** Transcend the canonical 25/5 Pomodoro with custom stage chains, conditional loops, micro-rest stages, and negative overtime count-up.
@@ -53,7 +53,7 @@ graph LR
 - **Profile:** 27, preparing for medical licensing exams during 14-hour hospital shifts using a Samsung Galaxy device.
 - **Pain Point:** Needs rigid discipline to smash through 200 flashcards per block. Loses track of which subspecialty he studied throughout the day.
 - **Needs:** Color-coded task tags (`#Cardiology`, `#Biochem`), daily goal ring (10 Pomodoros/day target), Jetpack Compose Glance widgets on his home screen, and Quick Settings tile to trigger flashcard blocks without opening the app.
-- **Key Habit:** Interacts with ChronoCraft 80% of the time via the Android Ongoing Notification chronometer and Glance home widget.
+- **Key Habit:** Interacts with Chrono 80% of the time via the Android Ongoing Notification chronometer and Glance home widget.
 
 #### Persona 3: Maya Lin — Architectural Designer & Creative Director
 - **Profile:** 29, spends hours in CAD and 3D modeling on a Galaxy Tab & OnePlus phone.
@@ -71,7 +71,7 @@ graph LR
 ### 2.2 End-to-End User Journeys
 
 #### Journey 1: The Deep Work Flow (Elena Vance)
-1. **Session Setup:** Elena opens ChronoCraft. The app restores her preset: "Deep Architecture (52m Focus / 17m Break / 4 Cycles)".
+1. **Session Setup:** Elena opens Chrono. The app restores her preset: "Deep Architecture (52m Focus / 17m Break / 4 Cycles)".
 2. **Launch:** She taps the center display. The screen drops into OLED black; numbers switch to a dimmer monospaced tabular font; mechanical keyboard clicks tick softly at 1 Hz.
 3. **Desk Dock Mode:** She sets her phone on a vertical stand. The screen dims down; 1-pixel micro-shift prevents OLED burn-in.
 4. **Completion & Transition:** At 52:00, a low-resonance gong plays. The phone vibrates with a smooth three-pulse haptic. The display gently transitions into a warm emerald tone indicating "Rest & Walk".
@@ -86,11 +86,11 @@ graph LR
 
 ## 3. The "Everything Customizable" Matrix
 
-ChronoCraft parameterizes every single component of the timer lifecycle.
+Chrono parameterizes every single component of the timer lifecycle.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        CHRONOCRAFT ENGINE (ANDROID)                    │
+│                           CHRONO ENGINE (ANDROID)                      │
 ├─────────────────┬──────────────────┬─────────────────┬─────────────────┤
 │    SEQUENCES    │     VISUALS      │  AUDIO/HAPTIC   │  THEME/TYPO     │
 ├─────────────────┼──────────────────┼─────────────────┼─────────────────┤
@@ -145,7 +145,7 @@ ChronoCraft parameterizes every single component of the timer lifecycle.
 - **Completion Heads-Up Notification:**
   - High-priority sound and vibration alert with actions: `[ Start Break ]`, `[ +5m Grace ]`.
 - **Quick Settings Tile (`FocusTileService`):**
-  - Add "ChronoCraft" to the Android quick settings tray.
+  - Add "Chrono" to the Android quick settings tray.
   - Shows current timer status; tap to start/pause session instantly.
 
 ### 3.8 Jetpack Compose Glance AppWidgets

@@ -1,4 +1,4 @@
-# UI/UX Design Specification & Guidelines: ChronoCraft (Android)
+# UI/UX Design Specification & Guidelines: Chrono (Android)
 
 **Platform:** Android Exclusive (Android 10+ / API 29 through Android 15+, React Native / Expo New Architecture)  
 **Design Philosophy:** Radical Simplicity with Infinite Customization (Material 3 + Zen Focus Studio)  
@@ -8,7 +8,7 @@
 
 ## 1. Core Design Philosophy: "Zen Canvas with Infinite Studio Power"
 
-ChronoCraft avoids the two pitfalls of mobile productivity apps:
+Chrono avoids the two pitfalls of mobile productivity apps:
 - It does **not** clutter the user with dashboards and charts during focus time.
 - It does **not** restrict the user with rigid, hardcoded timer rules or fixed color schemes.
 
@@ -124,7 +124,7 @@ ChronoCraft avoids the two pitfalls of mobile productivity apps:
 +---------------------------------------------------+
 |              ANDROID NOTIFICATION SHADE           |
 +---------------------------------------------------+
-|  [🍅] ChronoCraft · Focus: Deep Work              |
+|  [🍅] Chrono · Focus: Deep Work              |
 |      00:23:45 remaining                           |
 |      [ ⏸ Pause ]   [ ⏭ Skip ]   [ ➕ +5m ]       |
 +---------------------------------------------------+

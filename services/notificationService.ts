@@ -67,7 +67,7 @@ export class NotificationService {
     try {
       await notifee.displayNotification({
         id: this.ongoingNotificationId,
-        title: `ChronoCraft: ${stageName}`,
+        title: `Chrono: ${stageName}`,
         body: 'Session in progress',
         android: {
           channelId: 'pomodoro_ongoing',
