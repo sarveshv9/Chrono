@@ -11,10 +11,20 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useTimerStore, computeTotalPlanMinutes, PomodoroBlock, BlockType, ClockStyle } from '@/store/useTimerStore';
-import { ThemeColors, ThemePreset } from '@/theme/tokens';
-import { ConfirmActionModal } from '@/components/modals/ConfirmActionModal';
+import {
+  useTimerStore,
+  computeTotalPlanMinutes,
+  buildSequence,
+  PomodoroBlock,
+  BlockType,
+  ClockStyle,
+} from '@/store/useTimerStore';
+import { ThemeColors, ThemePreset, THEME_DEFINITIONS } from '@/theme/tokens';
 import { HapticService } from '@/services/hapticsService';
+import { ReorderList } from '@/components/ui/reorder-list';
+
+const ROW_HEIGHT = 48;
+const ROW_MARGIN = 8;
 
 interface PlanScreenProps {
   colors: ThemeColors;
@@ -23,19 +33,22 @@ interface PlanScreenProps {
 export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
   const plan = useTimerStore((state) => state.plan);
   const updatePlan = useTimerStore((state) => state.updatePlan);
-  const resetPlanToDefaults = useTimerStore((state) => state.resetPlanToDefaults);
   const setCurrentScreen = useTimerStore((state) => state.setCurrentScreen);
 
   const [activePicker, setActivePicker] = useState<string | null>(null);
   const [customInputVal, setCustomInputVal] = useState<string>('');
-  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
 
-  // Live total time calculation
+  // Active sequence and metrics
+  const activeSequence = buildSequence(plan);
   const totalMinutes = computeTotalPlanMinutes(plan);
   const totalHours = Math.floor(totalMinutes / 60);
   const remainingMins = totalMinutes % 60;
   const formattedTotalTime =
     totalHours > 0 ? `${totalHours}h ${remainingMins}m` : `${remainingMins}m`;
+
+  const focusCount = activeSequence.filter((b) => b.type === 'focus').length;
+  const breakCount = activeSequence.filter((b) => b.type !== 'focus').length;
 
   const openPicker = (key: string, initialVal: number | string) => {
     HapticService.buttonPress();
@@ -48,41 +61,31 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
     const num = parseInt(customInputVal.trim(), 10);
     if (!activePicker) return;
 
-    if (activePicker === 'sessionCount') {
+    if (activePicker === 'focusSessions') {
       if (customInputVal.toLowerCase() === 'unlimited') {
-        updatePlan({ sessionCount: 'unlimited' });
+        updatePlan({ sessionCount: 'unlimited', customSequenceEnabled: false });
       } else if (!isNaN(num) && num > 0) {
-        updatePlan({ sessionCount: num });
+        updatePlan({ sessionCount: num, customSequenceEnabled: false });
       }
-    } else if (activePicker === 'focusLength') {
+    } else if (activePicker === 'focusTime') {
       if (!isNaN(num) && num > 0) {
-        updatePlan({ focusMinutes: num });
-      }
-    } else if (activePicker === 'shortBreak') {
-      if (!isNaN(num) && num > 0) {
-        updatePlan({ shortBreakMinutes: num });
-      }
-    } else if (activePicker === 'longBreak') {
-      if (!isNaN(num) && num > 0) {
-        updatePlan({ longBreakMinutes: num });
-      }
-    } else if (activePicker === 'longEvery') {
-      if (customInputVal.toLowerCase() === 'never') {
-        updatePlan({ longBreakEvery: 'never' });
-      } else if (!isNaN(num) && num > 0) {
-        updatePlan({ longBreakEvery: num });
+        updatePlan({ focusMinutes: num, customSequenceEnabled: false });
       }
     } else if (activePicker === 'breakCount') {
       if (!isNaN(num) && num >= 0) {
-        updatePlan({ breakCount: num });
+        updatePlan({ breakCount: num, customSequenceEnabled: false });
       }
-    } else if (activePicker.startsWith('customBlock_')) {
-      const idx = parseInt(activePicker.replace('customBlock_', ''), 10);
+    } else if (activePicker === 'breakTime') {
+      if (!isNaN(num) && num > 0) {
+        updatePlan({ shortBreakMinutes: num, customSequenceEnabled: false });
+      }
+    } else if (activePicker.startsWith('block_')) {
+      const idx = parseInt(activePicker.replace('block_', ''), 10);
       if (!isNaN(idx) && !isNaN(num) && num > 0) {
-        const updated = [...plan.customSequence];
+        const updated = [...activeSequence];
         if (updated[idx]) {
           updated[idx] = { ...updated[idx], minutes: num };
-          updatePlan({ customSequence: updated });
+          updatePlan({ customSequenceEnabled: true, customSequence: updated });
         }
       }
     }
@@ -90,78 +93,44 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
     setActivePicker(null);
   };
 
-  // Custom Sequence Actions
-  const handleAddCustomBlock = (type: BlockType) => {
-    const defaultMins = type === 'focus' ? plan.focusMinutes : type === 'short' ? plan.shortBreakMinutes : plan.longBreakMinutes;
+  const handleAddBlockToOverview = (type: BlockType) => {
+    HapticService.buttonPress();
+    const defaultMins = type === 'focus' ? plan.focusMinutes : plan.shortBreakMinutes;
     const newBlock: PomodoroBlock = {
       id: `custom_${Date.now()}`,
       type,
       minutes: defaultMins,
     };
     updatePlan({
-      customSequence: [...plan.customSequence, newBlock],
+      customSequenceEnabled: true,
+      customSequence: [...activeSequence, newBlock],
     });
   };
 
-  const handleDeleteCustomBlock = (index: number) => {
-    const updated = plan.customSequence.filter((_, i) => i !== index);
-    updatePlan({ customSequence: updated });
+  const handleDeleteBlock = (index: number) => {
+    HapticService.buttonPress();
+    const updated = activeSequence.filter((_, i) => i !== index);
+    updatePlan({
+      customSequenceEnabled: true,
+      customSequence: updated,
+    });
   };
 
-  const handleMoveBlock = (index: number, direction: 'up' | 'down') => {
-    const updated = [...plan.customSequence];
-    const targetIdx = direction === 'up' ? index - 1 : index + 1;
-    if (targetIdx < 0 || targetIdx >= updated.length) return;
-    const [moved] = updated.splice(index, 1);
-    updated.splice(targetIdx, 0, moved);
-    updatePlan({ customSequence: updated });
+  const handleReorderBlocks = (newBlocks: PomodoroBlock[]) => {
+    updatePlan({
+      customSequenceEnabled: true,
+      customSequence: newBlocks,
+    });
   };
 
-  const renderGroupRow = (
-    label: string,
-    value: string,
-    onPress?: () => void
-  ) => (
-    <TouchableOpacity
-      style={styles.row}
-      onPress={() => {
-        if (onPress) {
-          HapticService.buttonPress();
-          onPress();
-        }
-      }}
-      disabled={!onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${label}: ${value}`}
-    >
-      <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
-      <View style={styles.rowRight}>
-        <Text style={[styles.rowValue, { color: colors.textSecondary }]}>{value}</Text>
-        {onPress && <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>}
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderSwitchRow = (
-    label: string,
-    value: boolean,
-    onValueChange: (val: boolean) => void
-  ) => (
-    <View style={styles.row}>
-      <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>{label}</Text>
-      <Switch
-        value={value}
-        onValueChange={(val) => {
-          HapticService.buttonPress();
-          onValueChange(val);
-        }}
-      />
-    </View>
-  );
+  const handleResetToStandard = () => {
+    HapticService.buttonPress();
+    updatePlan({ customSequenceEnabled: false });
+  };
 
   return (
-    <View style={styles.container}>
-      {/* Top Header Rail with standard Back Button */}
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Clean Monochrome Header */}
       <View style={[styles.header, { borderBottomColor: colors.surfaceBorder }]}>
         <TouchableOpacity
           style={styles.backButton}
@@ -169,252 +138,322 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
             HapticService.buttonPress();
             setCurrentScreen('timer');
           }}
-          accessibilityLabel="Back to Timer"
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="button"
+          accessibilityLabel="Back to Timer"
         >
-          <Text style={[styles.backIcon, { color: colors.accentFocus }]}>‹</Text>
-          <Text style={[styles.backText, { color: colors.accentFocus }]}>Timer</Text>
+          <Text style={[styles.backArrow, { color: colors.textPrimary }]}>‹</Text>
+          <Text style={[styles.backLabel, { color: colors.textPrimary }]}>Timer</Text>
         </TouchableOpacity>
+
         <Text style={[styles.headerTitle, { color: colors.textPrimary }]}>Settings</Text>
-        <View style={styles.headerRightPlaceholder} />
+
+        <TouchableOpacity
+          style={styles.doneButton}
+          onPress={() => {
+            HapticService.buttonPress();
+            setCurrentScreen('timer');
+          }}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Done"
+        >
+          <Text style={[styles.doneLabel, { color: colors.textPrimary }]}>Done</Text>
+        </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* CYCLE PREVIEW HERO CARD */}
-        <View style={[styles.heroCycleCard, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.surfaceBorder }]}>
-          <Text style={[styles.heroCycleLabel, { color: colors.textMuted }]}>PLANNED CYCLE</Text>
-          <Text style={[styles.heroCycleTime, { color: colors.textPrimary }]}>
-            {formattedTotalTime}
-          </Text>
-          <Text style={[styles.heroCycleSubtitle, { color: colors.textSecondary }]}>
-            {plan.sessionCount === 'unlimited' ? 'Continuous loop' : `${plan.sessionCount} focus sessions · ${plan.breakCount} breaks`}
-          </Text>
-        </View>
-
-        {/* SESSIONS SECTION */}
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>SESSIONS</Text>
-        <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-          {renderGroupRow(
-            'Number of focus sessions',
-            plan.sessionCount === 'unlimited' ? 'Unlimited' : `${plan.sessionCount}`,
-            () => openPicker('sessionCount', plan.sessionCount)
-          )}
-          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
-          {renderGroupRow(
-            'Focus length',
-            `${plan.focusMinutes} min`,
-            () => openPicker('focusLength', plan.focusMinutes)
-          )}
-        </View>
-
-        {/* BREAKS SECTION */}
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>BREAKS</Text>
-        <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-          {renderGroupRow(
-            'Short break length',
-            `${plan.shortBreakMinutes} min`,
-            () => openPicker('shortBreak', plan.shortBreakMinutes)
-          )}
-          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
-          {renderGroupRow(
-            'Long break length',
-            `${plan.longBreakMinutes} min`,
-            () => openPicker('longBreak', plan.longBreakMinutes)
-          )}
-          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
-          {renderGroupRow(
-            'Long break after',
-            plan.longBreakEvery === 'never' ? 'Never' : `${plan.longBreakEvery} sessions`,
-            () => openPicker('longEvery', plan.longBreakEvery)
-          )}
-          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
-          {renderGroupRow(
-            'Number of breaks',
-            `${plan.breakCount}`,
-            () => openPicker('breakCount', plan.breakCount)
-          )}
-        </View>
-
-        {/* AUTOMATION SECTION */}
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>AUTOMATION</Text>
-        <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-          {renderSwitchRow('Auto-start next block', plan.autoStartNext, (val) =>
-            updatePlan({ autoStartNext: val })
-          )}
-          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
-          {renderSwitchRow('Notify when block ends', plan.notifyOnEnd, (val) =>
-            updatePlan({ notifyOnEnd: val })
-          )}
-        </View>
-
-        {/* CUSTOM SEQUENCE MODE */}
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>CUSTOM SEQUENCE</Text>
-        <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-          {renderSwitchRow('Enable custom sequence', plan.customSequenceEnabled, (val) =>
-            updatePlan({ customSequenceEnabled: val })
-          )}
-
-          {plan.customSequenceEnabled && (
-            <View style={styles.customSequenceWrapper}>
-              <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
-              <Text style={[styles.sequenceSubhead, { color: colors.textSecondary }]}>
-                BLOCKS (IN ORDER OF EXECUTION)
-              </Text>
-
-              {plan.customSequence.map((block, idx) => (
-                <View
-                  key={block.id}
-                  style={[styles.blockRow, { backgroundColor: colors.cardBg, borderColor: colors.surfaceBorder }]}
-                >
-                  <View style={styles.blockInfo}>
-                    <Text style={[styles.blockIndex, { color: colors.textMuted }]}>#{idx + 1}</Text>
-                    <View style={[
-                      styles.typeTag,
-                      {
-                        backgroundColor:
-                          block.type === 'focus'
-                            ? colors.accentFocus + '22'
-                            : block.type === 'long'
-                            ? colors.accentLongBreak + '22'
-                            : colors.accentShortBreak + '22',
-                      },
-                    ]}>
-                      <Text style={[
-                        styles.typeTagText,
-                        {
-                          color:
-                            block.type === 'focus'
-                              ? colors.accentFocus
-                              : block.type === 'long'
-                              ? colors.accentLongBreak
-                              : colors.accentShortBreak,
-                        },
-                      ]}>
-                        {block.type === 'focus' ? 'Focus' : block.type === 'long' ? 'Long' : 'Short'}
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={[styles.blockDurationPill, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
-                      onPress={() => openPicker(`customBlock_${idx}`, block.minutes)}
-                      accessibilityLabel={`Change duration for block ${idx + 1}, currently ${block.minutes} minutes`}
-                      accessibilityRole="button"
-                    >
-                      <Text style={[styles.blockDuration, { color: colors.textPrimary }]}>
-                        {block.minutes}m ✎
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.blockControls}>
-                    {idx > 0 && (
-                      <TouchableOpacity
-                        onPress={() => handleMoveBlock(idx, 'up')}
-                        style={[styles.reorderBtn, { borderColor: colors.surfaceBorder }]}
-                      >
-                        <Text style={{ color: colors.textPrimary, fontSize: 12 }}>▲</Text>
-                      </TouchableOpacity>
-                    )}
-                    {idx < plan.customSequence.length - 1 && (
-                      <TouchableOpacity
-                        onPress={() => handleMoveBlock(idx, 'down')}
-                        style={[styles.reorderBtn, { borderColor: colors.surfaceBorder }]}
-                      >
-                        <Text style={{ color: colors.textPrimary, fontSize: 12 }}>▼</Text>
-                      </TouchableOpacity>
-                    )}
-                    {plan.customSequence.length > 1 && (
-                      <TouchableOpacity
-                        onPress={() => handleDeleteCustomBlock(idx)}
-                        style={[styles.deleteBlockBtn, { borderColor: colors.surfaceBorder }]}
-                      >
-                        <Text style={{ color: colors.danger, fontWeight: '700', fontSize: 12 }}>✕</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              ))}
-
-              <View style={styles.addBlockRow}>
-                <TouchableOpacity
-                  style={[styles.addPill, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
-                  onPress={() => handleAddCustomBlock('focus')}
-                >
-                  <Text style={[styles.addPillText, { color: colors.accentFocus }]}>+ Focus</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.addPill, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
-                  onPress={() => handleAddCustomBlock('short')}
-                >
-                  <Text style={[styles.addPillText, { color: colors.accentShortBreak }]}>+ Short</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.addPill, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
-                  onPress={() => handleAddCustomBlock('long')}
-                >
-                  <Text style={[styles.addPillText, { color: colors.accentLongBreak }]}>+ Long</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </View>
-
-        {/* APPEARANCE SECTION */}
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>APPEARANCE</Text>
-        <View style={[styles.group, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-          {renderGroupRow(
-            'Theme',
-            plan.themePreset === 'system' ? 'Follow System' : plan.themePreset.toUpperCase(),
-            () => setActivePicker('theme')
-          )}
-          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
-          {renderGroupRow(
-            'Clock style',
-            plan.visualClockStyle.toUpperCase(),
-            () => setActivePicker('clockStyle')
-          )}
-        </View>
-
-        {/* QUIET RESET ACTION */}
-        <View style={styles.footerSection}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        scrollEnabled={scrollEnabled}
+      >
+        {/* 1. FOCUS SESSION CONTAINER */}
+        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>FOCUS SESSION</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
           <TouchableOpacity
-            style={styles.resetTextBtn}
-            onPress={() => setIsResetConfirmOpen(true)}
+            style={styles.cardRow}
+            onPress={() => openPicker('focusSessions', plan.sessionCount)}
+            accessibilityRole="button"
+            accessibilityLabel={`Number of focus sessions: ${plan.sessionCount}`}
           >
-            <Text style={[styles.resetTextBtnLabel, { color: colors.textMuted }]}>
-              Reset Plan to Standard Defaults
-            </Text>
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Number of focus sessions</Text>
+            <View style={styles.valueRow}>
+              <Text style={[styles.rowValue, { color: colors.textPrimary }]}>
+                {plan.sessionCount === 'unlimited' ? 'Unlimited' : `${plan.sessionCount}`}
+              </Text>
+              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
+
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => openPicker('focusTime', plan.focusMinutes)}
+            accessibilityRole="button"
+            accessibilityLabel={`Focus time: ${plan.focusMinutes} minutes`}
+          >
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Time</Text>
+            <View style={styles.valueRow}>
+              <Text style={[styles.rowValue, { color: colors.textPrimary }]}>
+                {plan.focusMinutes} min
+              </Text>
+              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* 2. BREAK CONTAINER */}
+        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>BREAK</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => openPicker('breakCount', plan.breakCount)}
+            accessibilityRole="button"
+            accessibilityLabel={`Number of breaks: ${plan.breakCount}`}
+          >
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Number of breaks</Text>
+            <View style={styles.valueRow}>
+              <Text style={[styles.rowValue, { color: colors.textPrimary }]}>
+                {plan.breakCount}
+              </Text>
+              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
+
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => openPicker('breakTime', plan.shortBreakMinutes)}
+            accessibilityRole="button"
+            accessibilityLabel={`Break time: ${plan.shortBreakMinutes} minutes`}
+          >
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Time</Text>
+            <View style={styles.valueRow}>
+              <Text style={[styles.rowValue, { color: colors.textPrimary }]}>
+                {plan.shortBreakMinutes} min
+              </Text>
+              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* 3. OVERVIEW CONTAINER (REORDERABLE LIST) */}
+        <View style={styles.overviewHeaderRow}>
+          <Text style={[styles.sectionTitle, { color: colors.textMuted, marginBottom: 0 }]}>OVERVIEW</Text>
+          {plan.customSequenceEnabled && (
+            <TouchableOpacity onPress={handleResetToStandard}>
+              <Text style={[styles.resetLink, { color: colors.textMuted }]}>Reset to standard</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder, padding: 16, overflow: 'visible' }]}>
+          {/* Summary Row */}
+          <View style={styles.overviewSummaryRow}>
+            <View>
+              <Text style={[styles.overviewTotalTime, { color: colors.textPrimary }]}>
+                {formattedTotalTime}
+              </Text>
+              <Text style={[styles.overviewSubtitle, { color: colors.textMuted }]}>
+                {focusCount} Focus · {breakCount} Breaks
+              </Text>
+            </View>
+            <View style={[styles.modeBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.surfaceBorder }]}>
+              <Text style={[styles.modeBadgeText, { color: colors.textMuted }]}>
+                {plan.customSequenceEnabled ? 'CUSTOM' : 'STANDARD'}
+              </Text>
+            </View>
+          </View>
+
+          {/* ReorderList component */}
+          <ReorderList
+            items={activeSequence}
+            getId={(b) => b.id}
+            getLabel={(b) => `${b.type === 'focus' ? 'Focus' : 'Break'} session, ${b.minutes} minutes`}
+            onReorder={handleReorderBlocks}
+            setScrollEnabled={setScrollEnabled}
+            itemHeight={ROW_HEIGHT}
+            itemMargin={ROW_MARGIN}
+            colors={{
+              surface: colors.background,
+              surfaceElevated: colors.surfaceElevated,
+              surfaceBorder: colors.surfaceBorder,
+              textPrimary: colors.textPrimary,
+              textMuted: colors.textMuted,
+            }}
+            onItemTap={(block, index, isRightEdge) => {
+              if (isRightEdge && activeSequence.length > 1) {
+                handleDeleteBlock(index);
+              } else {
+                openPicker(`block_${index}`, block.minutes);
+              }
+            }}
+          >
+            {(block, isGrabbed) => {
+              const isFocus = block.type === 'focus';
+              const blockIndex = activeSequence.findIndex((b) => b.id === block.id);
+              return (
+                <View style={styles.blockInnerRow}>
+                  <Text style={[styles.blockIndexText, { color: isGrabbed ? colors.textPrimary : colors.textMuted }]}>
+                    #{blockIndex + 1}
+                  </Text>
+
+                  <View style={[styles.typeBadge, { borderColor: colors.surfaceBorder, backgroundColor: isGrabbed ? colors.surface : colors.surfaceElevated }]}>
+                    <Text style={[styles.typeBadgeText, { color: colors.textPrimary }]}>
+                      {isFocus ? 'Focus' : 'Break'}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.durationPill, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+                    <Text style={[styles.durationText, { color: colors.textPrimary }]}>
+                      {block.minutes}m ✎
+                    </Text>
+                  </View>
+
+                  <View style={{ flex: 1 }} />
+
+                  {activeSequence.length > 1 && !isGrabbed && (
+                    <View style={[styles.deleteButton, { borderColor: colors.surfaceBorder }]}>
+                      <Text style={[styles.deleteButtonText, { color: colors.textMuted }]}>✕</Text>
+                    </View>
+                  )}
+                </View>
+              );
+            }}
+          </ReorderList>
+
+          {/* Add Blocks Row */}
+          <View style={styles.addButtonsRow}>
+            <TouchableOpacity
+              style={[styles.addButton, { borderColor: colors.surfaceBorder, backgroundColor: colors.surfaceElevated }]}
+              onPress={() => handleAddBlockToOverview('focus')}
+              accessibilityRole="button"
+              accessibilityLabel="Add focus session"
+            >
+              <Text style={[styles.addButtonText, { color: colors.textPrimary }]}>+ Add Focus</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.addButton, { borderColor: colors.surfaceBorder, backgroundColor: colors.surfaceElevated }]}
+              onPress={() => handleAddBlockToOverview('short')}
+              accessibilityRole="button"
+              accessibilityLabel="Add break"
+            >
+              <Text style={[styles.addButtonText, { color: colors.textPrimary }]}>+ Add Break</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* 4. PREFERENCES (MINIMAL & MONOCHROME) */}
+        <Text style={[styles.sectionTitle, { color: colors.textMuted }]}>PREFERENCES</Text>
+        <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+          <View style={styles.cardRow}>
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Auto-start next stage</Text>
+            <Switch
+              value={plan.autoStartNext}
+              onValueChange={(val) => {
+                HapticService.buttonPress();
+                updatePlan({ autoStartNext: val });
+              }}
+              trackColor={{ false: colors.surfaceBorder, true: colors.textPrimary }}
+              thumbColor={Platform.OS === 'android' ? colors.background : undefined}
+            />
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
+
+          <View style={styles.cardRow}>
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Stage completion alerts</Text>
+            <Switch
+              value={plan.notifyOnEnd}
+              onValueChange={(val) => {
+                HapticService.buttonPress();
+                updatePlan({ notifyOnEnd: val });
+              }}
+              trackColor={{ false: colors.surfaceBorder, true: colors.textPrimary }}
+              thumbColor={Platform.OS === 'android' ? colors.background : undefined}
+            />
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
+
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => setActivePicker('theme')}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Theme</Text>
+            <View style={styles.valueRow}>
+              <Text style={[styles.rowValue, { color: colors.textPrimary }]}>
+                {plan.themePreset === 'system'
+                  ? 'Follow System'
+                  : THEME_DEFINITIONS[plan.themePreset]?.name || plan.themePreset.toUpperCase()}
+              </Text>
+              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
+
+          <TouchableOpacity
+            style={styles.cardRow}
+            onPress={() => setActivePicker('clockStyle')}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Clock style</Text>
+            <View style={styles.valueRow}>
+              <Text style={[styles.rowValue, { color: colors.textPrimary }]}>
+                {plan.visualClockStyle === 'ring'
+                  ? 'Circular Ring'
+                  : plan.visualClockStyle === 'sandglass'
+                  ? 'Digital Minimal'
+                  : plan.visualClockStyle === 'flip'
+                  ? 'Retro Flip'
+                  : 'Zen Breathing'}
+              </Text>
+              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
-      {/* Picker Modal */}
-      <Modal visible={activePicker !== null} transparent animationType="fade" onRequestClose={() => setActivePicker(null)}>
+      {/* Clean Monochrome Picker Modal */}
+      <Modal
+        visible={activePicker !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setActivePicker(null)}
+      >
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.modalBackdrop}
         >
-          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setActivePicker(null)} />
-          <View style={[styles.pickerDialog, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
-            <View style={styles.pickerHeaderRow}>
-              <Text style={[styles.pickerTitle, { color: colors.textPrimary }]}>
-                {activePicker === 'sessionCount' && 'Number of Sessions'}
-                {activePicker === 'focusLength' && 'Focus Length'}
-                {activePicker === 'shortBreak' && 'Short Break Length'}
-                {activePicker === 'longBreak' && 'Long Break Length'}
-                {activePicker === 'longEvery' && 'Long Break Frequency'}
-                {activePicker === 'breakCount' && 'Total Breaks'}
-                {activePicker?.startsWith('customBlock_') && 'Block Duration'}
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            activeOpacity={1}
+            onPress={() => setActivePicker(null)}
+          />
+          <View style={[styles.dialogCard, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
+            <View style={styles.dialogHeader}>
+              <Text style={[styles.dialogTitle, { color: colors.textPrimary }]}>
+                {activePicker === 'focusSessions' && 'Number of Focus Sessions'}
+                {activePicker === 'focusTime' && 'Focus Duration'}
+                {activePicker === 'breakCount' && 'Number of Breaks'}
+                {activePicker === 'breakTime' && 'Break Duration'}
+                {activePicker?.startsWith('block_') && 'Block Duration'}
                 {activePicker === 'theme' && 'Theme'}
-                {activePicker === 'clockStyle' && 'Clock Visualizer'}
+                {activePicker === 'clockStyle' && 'Clock Style'}
               </Text>
-              <TouchableOpacity onPress={() => setActivePicker(null)} style={styles.pickerCloseBtn}>
-                <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '700' }}>✕</Text>
+              <TouchableOpacity onPress={() => setActivePicker(null)} style={styles.dialogCloseBtn}>
+                <Text style={{ color: colors.textMuted, fontSize: 16, fontWeight: '700' }}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Categorical Pickers: Theme & Clock Style */}
+            {/* THEME PICKER */}
             {activePicker === 'theme' && (
-              <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+              <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
                 {([
                   { id: 'system', label: 'Follow System' },
                   { id: 'oled', label: 'OLED Obsidian' },
@@ -431,18 +470,21 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
                     }}
                   >
                     <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{t.label}</Text>
-                    {plan.themePreset === t.id && <Text style={{ color: colors.accentFocus }}>✓</Text>}
+                    {plan.themePreset === t.id && (
+                      <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>✓</Text>
+                    )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
 
+            {/* CLOCK STYLE PICKER */}
             {activePicker === 'clockStyle' && (
-              <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+              <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
                 {([
                   { id: 'ring', label: 'Circular Ring' },
                   { id: 'sandglass', label: 'Digital Minimal' },
-                  { id: 'flip', label: 'Retro Flip Clock' },
+                  { id: 'flip', label: 'Retro Flip' },
                   { id: 'breathing', label: 'Zen Breathing' },
                 ] as { id: ClockStyle; label: string }[]).map((c) => (
                   <TouchableOpacity
@@ -454,20 +496,21 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
                     }}
                   >
                     <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{c.label}</Text>
-                    {plan.visualClockStyle === c.id && <Text style={{ color: colors.accentFocus }}>✓</Text>}
+                    {plan.visualClockStyle === c.id && (
+                      <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>✓</Text>
+                    )}
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             )}
 
-            {/* Any Numerical Picker: Custom Input + Presets */}
+            {/* NUMERICAL PICKER */}
             {activePicker !== null && activePicker !== 'theme' && activePicker !== 'clockStyle' && (
               <View>
-                {/* Compact Centered Number Input */}
-                <View style={styles.customInputCenterRow}>
-                  <View style={[styles.customNumberBox, { backgroundColor: colors.background, borderColor: colors.surfaceBorder }]}>
+                <View style={styles.inputRow}>
+                  <View style={[styles.inputBox, { backgroundColor: colors.background, borderColor: colors.surfaceBorder }]}>
                     <TextInput
-                      style={[styles.customTextInput, { color: colors.textPrimary }]}
+                      style={[styles.textInput, { color: colors.textPrimary }]}
                       value={customInputVal}
                       onChangeText={setCustomInputVal}
                       keyboardType="number-pad"
@@ -481,133 +524,89 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
                       textAlign="center"
                     />
                   </View>
-                  <Text style={[styles.customInputUnit, { color: colors.textSecondary }]}>
-                    {activePicker === 'focusLength' || activePicker === 'shortBreak' || activePicker === 'longBreak' || activePicker?.startsWith('customBlock_')
+                  <Text style={[styles.unitText, { color: colors.textMuted }]}>
+                    {activePicker === 'focusTime' || activePicker === 'breakTime' || activePicker?.startsWith('block_')
                       ? 'min'
-                      : activePicker === 'sessionCount' || activePicker === 'longEvery'
+                      : activePicker === 'focusSessions'
                       ? 'sessions'
                       : 'breaks'}
                   </Text>
                   <TouchableOpacity
-                    style={[styles.customInputApplyBtn, { backgroundColor: colors.accentFocus }]}
+                    style={[styles.applyButton, { backgroundColor: colors.textPrimary }]}
                     onPress={handleApplyCustomInput}
                   >
-                    <Text style={styles.customInputApplyText}>Set</Text>
+                    <Text style={[styles.applyButtonText, { color: colors.background }]}>Set</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Special Shortcut Buttons */}
-                {activePicker === 'sessionCount' && (
+                {/* Unlimited Option for Focus Sessions */}
+                {activePicker === 'focusSessions' && (
                   <TouchableOpacity
-                    style={[styles.specialToggleBtn, { borderColor: colors.surfaceBorder, backgroundColor: plan.sessionCount === 'unlimited' ? colors.surface : 'transparent' }]}
+                    style={[
+                      styles.unlimitedButton,
+                      {
+                        borderColor: colors.surfaceBorder,
+                        backgroundColor: plan.sessionCount === 'unlimited' ? colors.surfaceElevated : 'transparent',
+                      },
+                    ]}
                     onPress={() => {
-                      updatePlan({ sessionCount: 'unlimited' });
+                      updatePlan({ sessionCount: 'unlimited', customSequenceEnabled: false });
                       setActivePicker(null);
                     }}
                   >
-                    <Text style={{ color: colors.accentFocus, fontWeight: '700' }}>
+                    <Text style={{ color: colors.textPrimary, fontWeight: '600', fontSize: 13 }}>
                       Set to Unlimited Sessions {plan.sessionCount === 'unlimited' ? '✓' : ''}
                     </Text>
                   </TouchableOpacity>
                 )}
 
-                {activePicker === 'longEvery' && (
-                  <TouchableOpacity
-                    style={[styles.specialToggleBtn, { borderColor: colors.surfaceBorder, backgroundColor: plan.longBreakEvery === 'never' ? colors.surface : 'transparent' }]}
-                    onPress={() => {
-                      updatePlan({ longBreakEvery: 'never' });
-                      setActivePicker(null);
-                    }}
-                  >
-                    <Text style={{ color: colors.accentFocus, fontWeight: '700' }}>
-                      Set to Never (No Long Break) {plan.longBreakEvery === 'never' ? '✓' : ''}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
-                {/* Quick Presets Grid */}
-                <Text style={[styles.presetsSubhead, { color: colors.textSecondary }]}>
-                  OR QUICK PRESETS:
-                </Text>
-
-                <ScrollView style={{ maxHeight: 200 }} showsVerticalScrollIndicator={false}>
-                  <View style={styles.presetsWrap}>
-                    {(activePicker === 'focusLength' || activePicker?.startsWith('customBlock_')
-                      ? [1, 2, 3, 4, 5, 8, 10, 15, 20, 25, 30, 45, 50, 60, 90, 120]
-                      : activePicker === 'shortBreak'
-                      ? [1, 2, 3, 4, 5, 8, 10, 15, 20, 30]
-                      : activePicker === 'longBreak'
-                      ? [5, 10, 15, 20, 25, 30, 45, 60]
-                      : activePicker === 'sessionCount'
-                      ? [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20]
-                      : activePicker === 'longEvery'
-                      ? [2, 3, 4, 5, 6, 8]
-                      : [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12]
-                    ).map((preset) => {
-                      const isCurrent =
-                        (activePicker === 'focusLength' && plan.focusMinutes === preset) ||
-                        (activePicker === 'shortBreak' && plan.shortBreakMinutes === preset) ||
-                        (activePicker === 'longBreak' && plan.longBreakMinutes === preset) ||
-                        (activePicker === 'sessionCount' && plan.sessionCount === preset) ||
-                        (activePicker === 'longEvery' && plan.longBreakEvery === preset) ||
-                        (activePicker === 'breakCount' && plan.breakCount === preset);
-
-                      return (
-                        <TouchableOpacity
-                          key={String(preset)}
-                          style={[
-                            styles.presetChip,
-                            {
-                              borderColor: isCurrent ? colors.accentFocus : colors.surfaceBorder,
-                              backgroundColor: isCurrent ? colors.surface : 'transparent',
-                            },
-                          ]}
-                          onPress={() => {
-                            if (activePicker === 'sessionCount') updatePlan({ sessionCount: preset });
-                            else if (activePicker === 'focusLength') updatePlan({ focusMinutes: preset });
-                            else if (activePicker === 'shortBreak') updatePlan({ shortBreakMinutes: preset });
-                            else if (activePicker === 'longBreak') updatePlan({ longBreakMinutes: preset });
-                            else if (activePicker === 'longEvery') updatePlan({ longBreakEvery: preset });
-                            else if (activePicker === 'breakCount') updatePlan({ breakCount: preset });
-                            else if (activePicker?.startsWith('customBlock_')) {
-                              const idx = parseInt(activePicker.replace('customBlock_', ''), 10);
-                              const updated = [...plan.customSequence];
-                              if (updated[idx]) {
-                                updated[idx] = { ...updated[idx], minutes: preset };
-                                updatePlan({ customSequence: updated });
-                              }
+                {/* Presets */}
+                <Text style={[styles.presetsHeader, { color: colors.textMuted }]}>PRESETS</Text>
+                <View style={styles.presetsWrap}>
+                  {(activePicker === 'focusTime' || activePicker?.startsWith('block_')
+                    ? [15, 20, 25, 30, 45, 50, 60, 90]
+                    : activePicker === 'breakTime'
+                    ? [3, 5, 8, 10, 15, 20]
+                    : activePicker === 'focusSessions'
+                    ? [1, 2, 3, 4, 5, 6, 8, 10]
+                    : [0, 1, 2, 3, 4, 5, 6, 8]
+                  ).map((preset) => {
+                    return (
+                      <TouchableOpacity
+                        key={String(preset)}
+                        style={[styles.presetChip, { borderColor: colors.surfaceBorder, backgroundColor: colors.background }]}
+                        onPress={() => {
+                          HapticService.buttonPress();
+                          if (activePicker === 'focusSessions') updatePlan({ sessionCount: preset, customSequenceEnabled: false });
+                          else if (activePicker === 'focusTime') updatePlan({ focusMinutes: preset, customSequenceEnabled: false });
+                          else if (activePicker === 'breakTime') updatePlan({ shortBreakMinutes: preset, customSequenceEnabled: false });
+                          else if (activePicker === 'breakCount') updatePlan({ breakCount: preset, customSequenceEnabled: false });
+                          else if (activePicker?.startsWith('block_')) {
+                            const idx = parseInt(activePicker.replace('block_', ''), 10);
+                            const updated = [...activeSequence];
+                            if (updated[idx]) {
+                              updated[idx] = { ...updated[idx], minutes: preset };
+                              updatePlan({ customSequenceEnabled: true, customSequence: updated });
                             }
-                            setActivePicker(null);
-                          }}
-                        >
-                          <Text style={[styles.presetChipText, { color: isCurrent ? colors.accentFocus : colors.textPrimary }]}>
-                            {preset}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </ScrollView>
+                          }
+                          setActivePicker(null);
+                        }}
+                      >
+                        <Text style={[styles.presetChipText, { color: colors.textPrimary }]}>
+                          {preset}
+                          {activePicker === 'focusTime' || activePicker === 'breakTime' || activePicker?.startsWith('block_')
+                            ? 'm'
+                            : ''}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
             )}
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-      {/* Confirmation to reset plan */}
-      <ConfirmActionModal
-        visible={isResetConfirmOpen}
-        title="Reset Plan to Defaults?"
-        message="This will restore the plan to 25m Focus, 5m Short Break, 15m Long Break, and 4 Sessions."
-        confirmText="Reset Plan"
-        isDestructive={true}
-        onCancel={() => setIsResetConfirmOpen(false)}
-        onConfirm={() => {
-          setIsResetConfirmOpen(false);
-          resetPlanToDefaults();
-        }}
-        colors={colors}
-      />
     </View>
   );
 };
@@ -621,190 +620,184 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
+    paddingTop: 8,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 44,
-    paddingRight: 10,
+    minHeight: 40,
   },
-  backIcon: {
-    fontSize: 28,
+  backArrow: {
+    fontSize: 26,
     fontWeight: '300',
     marginRight: 4,
     marginTop: -2,
   },
-  backText: {
+  backLabel: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  headerTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  doneButton: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  doneLabel: {
     fontSize: 16,
     fontWeight: '600',
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  headerRightPlaceholder: {
-    width: 60,
-  },
   scrollContent: {
-    padding: 20,
+    padding: 16,
     paddingBottom: 50,
   },
-  heroCycleCard: {
-    padding: 20,
-    borderRadius: 20,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  heroCycleLabel: {
+  sectionTitle: {
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 1.5,
-  },
-  heroCycleTime: {
-    fontSize: 32,
-    fontWeight: '800',
-    marginVertical: 4,
-    letterSpacing: -0.5,
-  },
-  heroCycleSubtitle: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginTop: 18,
+    letterSpacing: 1,
     marginBottom: 8,
+    marginLeft: 4,
+    marginTop: 8,
   },
-  group: {
+  card: {
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
+    marginBottom: 16,
   },
-  row: {
+  cardRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 14,
     paddingHorizontal: 16,
+    paddingVertical: 14,
     minHeight: 52,
   },
   rowLabel: {
     fontSize: 15,
     fontWeight: '500',
   },
-  rowRight: {
+  valueRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   rowValue: {
-    fontSize: 14,
+    fontSize: 15,
+    fontWeight: '600',
   },
   chevron: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   divider: {
     height: StyleSheet.hairlineWidth,
     marginLeft: 16,
   },
-  customSequenceWrapper: {
-    padding: 16,
-  },
-  sequenceSubhead: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    marginVertical: 10,
-  },
-  blockRow: {
+  overviewHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: 8,
     marginBottom: 8,
+    paddingHorizontal: 4,
   },
-  blockInfo: {
+  resetLink: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  overviewSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  overviewTotalTime: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  overviewSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  modeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  modeBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
+  blockInnerRow: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
   },
-  blockIndex: {
+  blockIndexText: {
     fontSize: 12,
     fontWeight: '700',
+    width: 26,
   },
-  typeTag: {
+  typeBadge: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginRight: 8,
   },
-  typeTagText: {
+  typeBadgeText: {
     fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.2,
+    fontWeight: '600',
   },
-  blockDuration: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  blockControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  reorderBtn: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
+  durationPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  deleteBlockBtn: {
-    width: 30,
-    height: 30,
+  durationText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  deleteButton: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
+    marginLeft: 6,
   },
-  addBlockRow: {
+  deleteButtonText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  addButtonsRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 8,
+    marginTop: 4,
   },
-  addPill: {
+  addButton: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
-  },
-  addPillText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  footerSection: {
-    marginTop: 28,
-    alignItems: 'center',
-  },
-  resetTextBtn: {
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    alignItems: 'center',
     justifyContent: 'center',
   },
-  resetTextBtnLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+  addButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   modalBackdrop: {
     flex: 1,
@@ -813,53 +806,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 24,
   },
-  pickerDialog: {
+  dialogCard: {
     width: '100%',
     maxWidth: 340,
-    borderRadius: 22,
+    borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 20,
+    padding: 18,
     alignSelf: 'center',
   },
-  pickerHeaderRow: {
+  dialogHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  pickerCloseBtn: {
+  dialogTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  dialogCloseBtn: {
     padding: 4,
-    minHeight: 36,
-    minWidth: 36,
+    minHeight: 28,
+    minWidth: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  pickerTitle: {
-    fontSize: 17,
-    fontWeight: '700',
+  pickerOption: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
   },
-  blockDurationPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    borderWidth: StyleSheet.hairlineWidth,
+  pickerOptionText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
-  customInputCenterRow: {
+  inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginVertical: 10,
+    marginBottom: 12,
   },
-  customNumberBox: {
-    width: 80,
+  inputBox: {
+    width: 76,
     height: 44,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  customTextInput: {
+  textInput: {
     width: '100%',
     height: '100%',
     fontSize: 20,
@@ -867,61 +865,48 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingVertical: 0,
   },
-  customInputUnit: {
+  unitText: {
     fontSize: 14,
     fontWeight: '600',
   },
-  customInputApplyBtn: {
+  applyButton: {
     height: 44,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-    justifyContent: 'center',
+    paddingHorizontal: 16,
+    borderRadius: 10,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  customInputApplyText: {
-    color: '#FFFFFF',
+  applyButtonText: {
     fontSize: 14,
     fontWeight: '700',
   },
-  specialToggleBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+  unlimitedButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
     marginBottom: 12,
   },
-  presetsSubhead: {
-    fontSize: 11,
+  presetsHeader: {
+    fontSize: 10,
     fontWeight: '700',
     letterSpacing: 0.8,
-    marginBottom: 10,
-    marginTop: 6,
+    marginBottom: 8,
   },
   presetsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    paddingBottom: 8,
+    gap: 6,
   },
   presetChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
   },
   presetChipText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-  },
-  pickerOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  pickerOptionText: {
-    fontSize: 15,
-    fontWeight: '500',
   },
 });

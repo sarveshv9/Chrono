@@ -88,7 +88,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
     } else if (currentBlock.type === 'long') {
       return 'Long Break';
     } else {
-      return 'Short Break';
+      return 'Break';
     }
   };
 
@@ -111,7 +111,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
       ? 'FOCUS'
       : currentBlock.type === 'long'
       ? 'LONG BREAK'
-      : 'SHORT BREAK';
+      : 'BREAK';
 
   const renderProgressDots = () => {
     if (plan.sessionCount === 'unlimited') return null;

@@ -18,10 +18,10 @@ export interface PomodoroBlock {
 export interface PomodoroPlan {
   focusMinutes: number;
   shortBreakMinutes: number;
-  longBreakMinutes: number;
+  longBreakMinutes?: number;
   sessionCount: number | 'unlimited';
   breakCount: number;
-  longBreakEvery: number | 'never';
+  longBreakEvery?: number | 'never';
   autoStartNext: boolean;
   notifyOnEnd: boolean;
   customSequenceEnabled: boolean;
@@ -36,7 +36,7 @@ export const DEFAULT_PLAN: PomodoroPlan = {
   longBreakMinutes: 15,
   sessionCount: 4,
   breakCount: 3,
-  longBreakEvery: 4,
+  longBreakEvery: 'never',
   autoStartNext: false,
   notifyOnEnd: true,
   customSequenceEnabled: false,
@@ -48,7 +48,7 @@ export const DEFAULT_PLAN: PomodoroPlan = {
     { id: '5', type: 'focus', minutes: 25 },
     { id: '6', type: 'short', minutes: 5 },
     { id: '7', type: 'focus', minutes: 25 },
-    { id: '8', type: 'long', minutes: 15 },
+    { id: '8', type: 'short', minutes: 5 },
   ],
   visualClockStyle: 'ring',
   themePreset: 'system',
@@ -63,7 +63,7 @@ export function buildSequence(plan: PomodoroPlan): PomodoroBlock[] {
   const blocks: PomodoroBlock[] = [];
   const totalSessions = plan.sessionCount === 'unlimited' ? 50 : Math.max(1, plan.sessionCount);
   const maxBreaks = plan.sessionCount === 'unlimited' ? plan.breakCount : Math.min(plan.breakCount, totalSessions);
-  const longEvery = plan.longBreakEvery === 'never' ? 0 : plan.longBreakEvery;
+  const breakMinutes = plan.shortBreakMinutes || 5;
 
   for (let i = 1; i <= totalSessions; i++) {
     blocks.push({
@@ -73,11 +73,10 @@ export function buildSequence(plan: PomodoroPlan): PomodoroBlock[] {
     });
 
     if (i <= maxBreaks) {
-      const isLong = longEvery > 0 && i % longEvery === 0;
       blocks.push({
         id: `block_b_${i}`,
-        type: isLong ? 'long' : 'short',
-        minutes: Math.max(1, isLong ? plan.longBreakMinutes : plan.shortBreakMinutes),
+        type: 'short',
+        minutes: Math.max(1, breakMinutes),
       });
     }
   }
@@ -248,8 +247,6 @@ export const useTimerStore = create<TimerState>((set, get) => {
       } else {
         if (currentBlock?.type === 'focus') {
           current.updatePlan({ focusMinutes: validMinutes });
-        } else if (currentBlock?.type === 'long') {
-          current.updatePlan({ longBreakMinutes: validMinutes });
         } else {
           current.updatePlan({ shortBreakMinutes: validMinutes });
         }
@@ -285,7 +282,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
 
       HapticService.toggleTimer();
 
-      const blockLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Short Break';
+      const blockLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Break';
       if (plan.notifyOnEnd) {
         NotificationService.showOngoing(blockLabel, targetEndTime);
       }
@@ -372,8 +369,8 @@ export const useTimerStore = create<TimerState>((set, get) => {
       AudioFeedbackService.playStageCompleteSound(currentBlock?.type);
 
       if (plan.notifyOnEnd) {
-        const currentLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Short Break';
-        const nextLabel = nextBlock?.type === 'focus' ? 'Focus Session' : nextBlock?.type === 'long' ? 'Long Break' : 'Short Break';
+        const currentLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Break';
+        const nextLabel = nextBlock?.type === 'focus' ? 'Focus Session' : nextBlock?.type === 'long' ? 'Long Break' : 'Break';
         NotificationService.showCompletionAlarm(currentBlock?.type || 'focus', currentLabel, nextLabel);
       }
 
@@ -424,8 +421,8 @@ export const useTimerStore = create<TimerState>((set, get) => {
           const durationMs = (nextBlock?.minutes || 25) * 60 * 1000;
 
           if (plan.notifyOnEnd) {
-            const currentLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Short Break';
-            const nextLabel = nextBlock?.type === 'focus' ? 'Focus Session' : nextBlock?.type === 'long' ? 'Long Break' : 'Short Break';
+            const currentLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Break';
+            const nextLabel = nextBlock?.type === 'focus' ? 'Focus Session' : nextBlock?.type === 'long' ? 'Long Break' : 'Break';
             NotificationService.showCompletionAlarm(currentBlock?.type || 'focus', currentLabel, nextLabel);
           }
 
