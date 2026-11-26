@@ -294,13 +294,37 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
             {(block, isGrabbed) => {
               const isFocus = block.type === 'focus';
               const blockIndex = activeSequence.findIndex((b) => b.id === block.id);
+              const badgeColor = isFocus ? colors.accentFocus : colors.accentShortBreak;
               return (
                 <View style={styles.blockInnerRow}>
                   <Text style={[styles.blockIndexText, { color: isGrabbed ? colors.textPrimary : colors.textMuted }]}>
                     #{blockIndex + 1}
                   </Text>
 
-                  <View style={[styles.typeBadge, { borderColor: colors.surfaceBorder, backgroundColor: isGrabbed ? colors.surface : colors.surfaceElevated }]}>
+                  <View
+                    style={[
+                      styles.typeBadge,
+                      {
+                        borderColor: isGrabbed ? `${badgeColor}66` : `${badgeColor}38`,
+                        backgroundColor: isGrabbed ? `${badgeColor}26` : `${badgeColor}14`,
+                        shadowColor: badgeColor,
+                        shadowOffset: { width: 0, height: 0 },
+                        shadowOpacity: isGrabbed ? 0.45 : 0.28,
+                        shadowRadius: 6,
+                        elevation: 2,
+                      },
+                    ]}
+                  >
+                    <View
+                      pointerEvents="none"
+                      style={[
+                        StyleSheet.absoluteFill,
+                        {
+                          backgroundColor: badgeColor,
+                          opacity: isGrabbed ? 0.12 : 0.06,
+                        },
+                      ]}
+                    />
                     <Text style={[styles.typeBadgeText, { color: colors.textPrimary }]}>
                       {isFocus ? 'Focus' : 'Break'}
                     </Text>
@@ -327,7 +351,13 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
           {/* Add Blocks Row */}
           <View style={styles.addButtonsRow}>
             <TouchableOpacity
-              style={[styles.addButton, { borderColor: colors.surfaceBorder, backgroundColor: colors.surfaceElevated }]}
+              style={[
+                styles.addButton,
+                {
+                  borderColor: `${colors.accentFocus}33`,
+                  backgroundColor: `${colors.accentFocus}0E`,
+                },
+              ]}
               onPress={() => handleAddBlockToOverview('focus')}
               accessibilityRole="button"
               accessibilityLabel="Add focus session"
@@ -336,7 +366,13 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.addButton, { borderColor: colors.surfaceBorder, backgroundColor: colors.surfaceElevated }]}
+              style={[
+                styles.addButton,
+                {
+                  borderColor: `${colors.accentShortBreak}33`,
+                  backgroundColor: `${colors.accentShortBreak}0E`,
+                },
+              ]}
               onPress={() => handleAddBlockToOverview('short')}
               accessibilityRole="button"
               accessibilityLabel="Add break"
@@ -752,12 +788,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderWidth: 1,
     marginRight: 8,
+    overflow: 'hidden',
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   typeBadgeText: {
     fontSize: 12,
     fontWeight: '600',
+    letterSpacing: 0.2,
   },
   durationPill: {
     paddingHorizontal: 8,

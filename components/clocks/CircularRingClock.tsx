@@ -17,7 +17,7 @@ export const CircularRingClock: React.FC<CircularRingClockProps> = ({
   totalDurationMs,
   colors,
   stageColor,
-  size = 280,
+  size = 316,
   strokeWidth = 6.5,
 }) => {
   const radius = (size - strokeWidth) / 2;
@@ -30,6 +30,7 @@ export const CircularRingClock: React.FC<CircularRingClockProps> = ({
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   const timeFormatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  const digitsFontSize = Math.round(size * 0.25);
 
   return (
     <View style={[styles.container, { width: size, height: size }]}>
@@ -40,7 +41,7 @@ export const CircularRingClock: React.FC<CircularRingClockProps> = ({
           cy={size / 2}
           r={radius}
           stroke={colors.progressTrack}
-          strokeWidth={3.5}
+          strokeWidth={4}
           strokeOpacity={0.6}
           fill="none"
         />
@@ -60,7 +61,7 @@ export const CircularRingClock: React.FC<CircularRingClockProps> = ({
       </Svg>
 
       <View style={styles.centerContent}>
-        <Text style={[styles.digits, { color: colors.textPrimary }]}>
+        <Text style={[styles.digits, { color: colors.textPrimary, fontSize: digitsFontSize }]}>
           {timeFormatted}
         </Text>
       </View>
@@ -81,7 +82,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   digits: {
-    fontSize: 68,
     fontWeight: '200',
     fontVariant: ['tabular-nums'],
     letterSpacing: -2,

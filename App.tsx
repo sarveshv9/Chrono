@@ -22,6 +22,13 @@ export default function App() {
 
   // Initialize notifications and rehydrate persisted plan & timer state
   useEffect(() => {
+    NotificationService.setActionHandlers({
+      onPause: () => useTimerStore.getState().pause(),
+      onResume: () => useTimerStore.getState().resume(),
+      onExtend5m: () => useTimerStore.getState().extendCurrentBlock(5),
+      onSkip: () => useTimerStore.getState().skip(),
+      onTimerExpired: () => useTimerStore.getState().reconcile(),
+    });
     NotificationService.init();
     loadPersistedState();
   }, [loadPersistedState]);

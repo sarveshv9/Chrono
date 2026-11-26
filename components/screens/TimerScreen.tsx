@@ -8,10 +8,11 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { useTimerStore } from '@/store/useTimerStore';
 import { ThemeColors } from '@/theme/tokens';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { CircularRingClock } from '@/components/clocks/CircularRingClock';
 import { DigitalClock } from '@/components/clocks/DigitalClock';
 import { FlipClock } from '@/components/clocks/FlipClock';
@@ -20,9 +21,42 @@ import { ConfirmActionModal } from '@/components/modals/ConfirmActionModal';
 import { HapticService } from '@/services/hapticsService';
 
 const SettingsIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = '#FFFFFF' }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
     <Circle cx="12" cy="12" r="3" />
     <Path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+  </Svg>
+);
+
+const ResetIcon: React.FC<{ size?: number; color?: string }> = ({ size = 20, color = '#FFFFFF' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <Path d="M3 3v5h5" />
+  </Svg>
+);
+
+const PlayIcon: React.FC<{ size?: number; color?: string }> = ({ size = 18, color = '#FFFFFF' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Path d="M6 4l14 8-14 8V4z" />
+  </Svg>
+);
+
+const PauseIcon: React.FC<{ size?: number; color?: string }> = ({ size = 18, color = '#FFFFFF' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Rect x="6" y="4" width="4" height="16" rx="1" />
+    <Rect x="14" y="4" width="4" height="16" rx="1" />
+  </Svg>
+);
+
+const ChevronDownIcon: React.FC<{ size?: number; color?: string }> = ({ size = 14, color = '#FFFFFF' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M6 9l6 6 6-6" />
+  </Svg>
+);
+
+const SkipIcon: React.FC<{ size?: number; color?: string }> = ({ size = 18, color = '#FFFFFF' }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M5 4l10 8-10 8V4z" fill={color} />
+    <Path d="M19 5v14" />
   </Svg>
 );
 
@@ -31,6 +65,9 @@ interface TimerScreenProps {
 }
 
 export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
+  const { width, height } = useWindowDimensions();
+  const clockSize = Math.min(Math.round(width * 0.82), Math.round(height * 0.40), 324);
+
   const {
     status,
     activeBlocks,
@@ -56,7 +93,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
     visible: false,
     title: '',
     message: '',
-    action: () => {},
+    action: () => { },
   });
 
   const [durationModalOpen, setDurationModalOpen] = useState(false);
@@ -96,60 +133,14 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
     isCompleted
       ? colors.accentShortBreak
       : currentBlock.type === 'focus'
-      ? colors.accentFocus
-      : currentBlock.type === 'long'
-      ? colors.accentLongBreak
-      : colors.accentShortBreak;
+        ? colors.accentFocus
+        : currentBlock.type === 'long'
+          ? colors.accentLongBreak
+          : colors.accentShortBreak;
 
   const totalSeconds = Math.ceil(remainingMs / 1000);
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
-  const timeFormatted = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-
-  const stageTypeLabel =
-    currentBlock.type === 'focus'
-      ? 'FOCUS'
-      : currentBlock.type === 'long'
-      ? 'LONG BREAK'
-      : 'BREAK';
-
-  const renderProgressDots = () => {
-    if (plan.sessionCount === 'unlimited') return null;
-
-    const displayBlocks = activeBlocks.slice(0, 16);
-
-    return (
-      <View style={styles.dotsRow}>
-        {displayBlocks.map((block, idx) => {
-          const isCompleted = idx < currentBlockIndex;
-          const isCurrent = idx === currentBlockIndex;
-          const blockColor =
-            block.type === 'focus'
-              ? colors.accentFocus
-              : block.type === 'long'
-              ? colors.accentLongBreak
-              : colors.accentShortBreak;
-
-          const pillWidth = isCurrent ? 22 : isCompleted ? (block.type === 'focus' ? 14 : 8) : 6;
-          const pillColor = isCurrent ? stageAccentColor : isCompleted ? blockColor : colors.progressTrack;
-
-          return (
-            <View
-              key={block.id || idx}
-              style={[
-                styles.dotPill,
-                {
-                  width: pillWidth,
-                  backgroundColor: pillColor,
-                  opacity: isCompleted || isCurrent ? 1 : 0.4,
-                },
-              ]}
-            />
-          );
-        })}
-      </View>
-    );
-  };
 
   const handleSkipPress = () => {
     if (isRunning) {
@@ -183,7 +174,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
     <View style={styles.container}>
       {/* Top Header Rail: Brand & Settings Icon */}
       <View style={styles.header}>
-        <Text style={[styles.brandTitle, { color: colors.textMuted }]}>CHRONO</Text>
+        <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>CHRONO</Text>
         <TouchableOpacity
           style={[styles.settingsBtn, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.surfaceBorder }]}
           onPress={() => {
@@ -192,8 +183,9 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
           }}
           accessibilityLabel="Open settings"
           accessibilityRole="button"
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <SettingsIcon size={18} color={colors.textPrimary} />
+          <SettingsIcon size={19} color={colors.textPrimary} />
         </TouchableOpacity>
       </View>
 
@@ -203,11 +195,35 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
         accessible
         accessibilityLabel={`Timer, ${minutes} minutes ${seconds} seconds, ${isRunning ? 'running' : isPaused ? 'paused' : 'idle'}`}
       >
-        <View style={[styles.stagePill, { backgroundColor: colors.glassBg, borderColor: colors.surfaceBorder }]}>
-          <Text style={[styles.stagePillText, { color: stageAccentColor }]}>
+        <TouchableOpacity
+          activeOpacity={isRunning || isCompleted ? 1 : 0.75}
+          onPress={() => {
+            if (!isRunning && !isCompleted) {
+              HapticService.buttonPress();
+              setDurationInputVal(String(currentBlock.minutes));
+              setDurationModalOpen(true);
+            }
+          }}
+          style={[
+            styles.stagePill,
+            {
+              backgroundColor: colors.surface,
+              borderColor: colors.surfaceBorder,
+            },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`${getStageHeader()}, tap to adjust duration`}
+        >
+          <View style={[styles.stageDot, { backgroundColor: stageAccentColor }]} />
+          <Text style={[styles.stagePillText, { color: colors.textPrimary }]}>
             {getStageHeader()}
           </Text>
-        </View>
+          {!isRunning && !isCompleted && (
+            <View style={styles.stageChevron}>
+              <ChevronDownIcon size={14} color={colors.textSecondary} />
+            </View>
+          )}
+        </TouchableOpacity>
 
         {isCompleted ? (
           <View style={styles.completedCard}>
@@ -244,6 +260,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
                 totalDurationMs={totalDurationMs}
                 colors={colors}
                 stageColor={stageAccentColor}
+                size={clockSize}
               />
             )}
             {plan.visualClockStyle === 'sandglass' && (
@@ -266,44 +283,18 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
             )}
           </TouchableOpacity>
         )}
-
-        {/* Plan Progress Oblong Indicators */}
-        {renderProgressDots()}
-
-        {/* Duration Badge (when idle) */}
-        {!isRunning && !isPaused && !isCompleted && (
-          <TouchableOpacity
-            style={[styles.quickDurationBadge, { backgroundColor: colors.surfaceElevated, borderColor: colors.surfaceBorder }]}
-            onPress={() => {
-              HapticService.buttonPress();
-              setDurationInputVal(String(currentBlock.minutes));
-              setDurationModalOpen(true);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={`Change duration for this ${stageTypeLabel.toLowerCase()} session, currently ${currentBlock.minutes} minutes`}
-          >
-            <Text style={[styles.quickDurationText, { color: colors.textSecondary }]}>
-              {currentBlock.minutes} MIN {stageTypeLabel} <Text style={{ color: stageAccentColor }}>▾</Text>
-            </Text>
-          </TouchableOpacity>
-        )}
       </View>
 
-      {/* Symmetrical Floating Action Pod */}
+      {/* Stacked Action Pod: Full-Width Hero Pill + Dual Reset/Skip Pills */}
       <View style={styles.actionPod}>
-        {/* Reset Disc Button */}
-        <TouchableOpacity
-          style={[styles.discBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.surfaceBorder }]}
-          onPress={handleResetPress}
-          accessibilityRole="button"
-          accessibilityLabel="Reset current session"
-        >
-          <Text style={[styles.discBtnIcon, { color: colors.textSecondary }]}>↺</Text>
-        </TouchableOpacity>
-
         {/* Hero Capsule Start/Pause/New Cycle Button */}
         <TouchableOpacity
-          style={[styles.heroPillBtn, { backgroundColor: stageAccentColor }]}
+          style={[
+            styles.heroPillBtn,
+            {
+              backgroundColor: stageAccentColor,
+            },
+          ]}
           onPress={() => {
             HapticService.buttonPress();
             if (isCompleted) {
@@ -320,20 +311,55 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
           accessibilityRole="button"
           accessibilityLabel={isCompleted ? 'Reset and start a new cycle' : isRunning ? 'Pause timer' : isPaused ? 'Resume timer' : 'Start timer'}
         >
-          <Text style={styles.heroPillText}>
-            {isCompleted ? 'NEW CYCLE' : isRunning ? 'PAUSE' : isPaused ? 'RESUME' : 'START'}
-          </Text>
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+            <Svg width="100%" height="100%">
+              <Defs>
+                <LinearGradient id="btnSheen" x1="0" y1="0" x2="1" y2="1">
+                  <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0.16" />
+                  <Stop offset="1" stopColor="#000000" stopOpacity="0.14" />
+                </LinearGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" rx="35" fill="url(#btnSheen)" />
+            </Svg>
+          </View>
+          <View style={styles.heroPillContent}>
+            {isRunning ? (
+              <PauseIcon size={21} color="#FFFFFF" />
+            ) : isCompleted ? (
+              <ResetIcon size={21} color="#FFFFFF" />
+            ) : (
+              <PlayIcon size={21} color="#FFFFFF" />
+            )}
+            <Text style={styles.heroPillText}>
+              {isCompleted ? 'New Cycle' : isRunning ? 'Pause' : isPaused ? 'Resume' : 'Start'}
+            </Text>
+          </View>
         </TouchableOpacity>
 
-        {/* Skip Disc Button */}
-        <TouchableOpacity
-          style={[styles.discBtn, { backgroundColor: colors.surfaceElevated, borderColor: colors.surfaceBorder }]}
-          onPress={handleSkipPress}
-          accessibilityRole="button"
-          accessibilityLabel="Skip to next session"
-        >
-          <Text style={[styles.discBtnIcon, { color: colors.textSecondary }]}>⇥</Text>
-        </TouchableOpacity>
+        {/* Secondary Dual Pill Row: Reset & Skip */}
+        <View style={styles.secondaryActionsRow}>
+          <TouchableOpacity
+            style={[styles.secondaryPillBtn, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
+            onPress={handleResetPress}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Reset current session"
+          >
+            <ResetIcon size={19} color={colors.textPrimary} />
+            <Text style={[styles.secondaryPillText, { color: colors.textPrimary }]}>Reset</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.secondaryPillBtn, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}
+            onPress={handleSkipPress}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Skip to next session"
+          >
+            <SkipIcon size={18} color={colors.textPrimary} />
+            <Text style={[styles.secondaryPillText, { color: colors.textPrimary }]}>Skip</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Confirmation Modal */}
@@ -453,27 +479,27 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 22,
     justifyContent: 'space-between',
-    paddingBottom: 24,
+    paddingBottom: Platform.OS === 'ios' ? 12 : 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 10,
-    minHeight: 48,
+    paddingTop: Platform.OS === 'ios' ? 10 : 14,
+    minHeight: 50,
   },
   brandTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 3.5,
   },
   settingsBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: StyleSheet.hairlineWidth,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -481,123 +507,129 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 10,
   },
   stagePill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 24,
+    borderWidth: 1,
+    marginBottom: 32,
+  },
+  stageDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    marginRight: 10,
   },
   stagePillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: 0.3,
+  },
+  stageChevron: {
+    marginLeft: 8,
+    marginTop: 1,
   },
   completedCard: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    paddingVertical: 24,
     width: '100%',
   },
   trophyIconCircle: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
+    width: 104,
+    height: 104,
+    borderRadius: 52,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
   },
   completedHeading: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.5,
     marginBottom: 8,
   },
   completedSubtext: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '500',
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: 18,
+    paddingHorizontal: 16,
   },
   completedSummaryPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
   },
   completedSummaryText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
   },
   clockWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 24,
-  },
-  dotPill: {
-    height: 5,
-    borderRadius: 2.5,
-  },
-  quickDurationBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    marginTop: 18,
-  },
-  quickDurationText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-  },
   actionPod: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 20,
     width: '100%',
-    paddingBottom: Platform.OS === 'ios' ? 12 : 20,
-  },
-  discBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  discBtnIcon: {
-    fontSize: 20,
-    fontWeight: '500',
+    paddingBottom: Platform.OS === 'ios' ? 20 : 28,
+    paddingTop: 12,
   },
   heroPillBtn: {
-    width: 170,
-    height: 56,
-    borderRadius: 28,
+    width: '100%',
+    height: 70,
+    borderRadius: 35,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  heroPillContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
   heroPillText: {
     color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '500',
+    letterSpacing: 0.3,
+  },
+  secondaryActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 14,
+    marginTop: 14,
+  },
+  secondaryPillBtn: {
+    flex: 1,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+  },
+  secondaryPillText: {
     fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 1.2,
+    fontWeight: '500',
   },
   modalBackdrop: {
     flex: 1,

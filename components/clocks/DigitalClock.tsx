@@ -46,23 +46,23 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   digits: {
-    fontSize: 84,
+    fontSize: 104,
     fontWeight: '200',
     fontVariant: ['tabular-nums'],
-    letterSpacing: -2,
-    marginBottom: 20,
+    letterSpacing: -3,
+    marginBottom: 26,
   },
   trackBar: {
-    width: 200,
-    height: 3,
-    borderRadius: 2,
+    width: 280,
+    height: 6,
+    borderRadius: 3,
     overflow: 'hidden',
   },
   fillBar: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: 3,
   },
 });

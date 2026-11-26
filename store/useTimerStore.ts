@@ -111,6 +111,7 @@ export interface TimerState {
   resume: () => void;
   reset: () => void;
   skip: () => void;
+  extendCurrentBlock: (minutes: number) => void;
   tick: () => void;
   reconcile: () => void;
 
@@ -270,7 +271,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
     },
 
     start: async () => {
-      const { remainingMs, activeBlocks, currentBlockIndex, plan } = get();
+      const { remainingMs, totalDurationMs, activeBlocks, currentBlockIndex, plan } = get();
       const currentBlock = activeBlocks[currentBlockIndex] || activeBlocks[0];
       const now = Date.now();
       const targetEndTime = now + remainingMs;
@@ -283,14 +284,19 @@ export const useTimerStore = create<TimerState>((set, get) => {
       HapticService.toggleTimer();
 
       const blockLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Break';
+      const subtitle = `Block ${currentBlockIndex + 1} of ${activeBlocks.length} • Tap to open`;
       if (plan.notifyOnEnd) {
-        NotificationService.showOngoing(blockLabel, targetEndTime);
+        NotificationService.showOngoing(blockLabel, targetEndTime, {
+          subtitle,
+          totalDurationMs,
+          blockType: currentBlock?.type || 'focus',
+        });
       }
       persist();
     },
 
     pause: () => {
-      const { targetEndTime } = get();
+      const { targetEndTime, totalDurationMs, activeBlocks, currentBlockIndex, plan } = get();
       if (!targetEndTime) return;
 
       const remainingMs = Math.max(0, targetEndTime - Date.now());
@@ -301,12 +307,60 @@ export const useTimerStore = create<TimerState>((set, get) => {
       });
 
       HapticService.toggleTimer();
-      NotificationService.cancelOngoing();
+      if (plan.notifyOnEnd) {
+        const currentBlock = activeBlocks[currentBlockIndex] || activeBlocks[0];
+        const blockLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Break';
+        const subtitle = `Block ${currentBlockIndex + 1} of ${activeBlocks.length}`;
+        NotificationService.showPaused(blockLabel, remainingMs, {
+          subtitle,
+          totalDurationMs,
+          blockType: currentBlock?.type || 'focus',
+        });
+      } else {
+        NotificationService.cancelOngoing();
+      }
       persist();
     },
 
     resume: () => {
       get().start();
+    },
+
+    extendCurrentBlock: (minutes: number) => {
+      const { status, targetEndTime, remainingMs, totalDurationMs, activeBlocks, currentBlockIndex, plan } = get();
+      if (status === 'completed') return;
+
+      const extraMs = Math.max(1, minutes) * 60 * 1000;
+      const newRemainingMs = remainingMs + extraMs;
+      const newTotalDurationMs = totalDurationMs + extraMs;
+      const newTargetEndTime = status === 'running' && targetEndTime ? targetEndTime + extraMs : null;
+
+      set({
+        remainingMs: newRemainingMs,
+        totalDurationMs: newTotalDurationMs,
+        targetEndTime: newTargetEndTime,
+      });
+
+      if (plan.notifyOnEnd) {
+        const currentBlock = activeBlocks[currentBlockIndex] || activeBlocks[0];
+        const blockLabel = currentBlock?.type === 'focus' ? 'Focus Session' : currentBlock?.type === 'long' ? 'Long Break' : 'Break';
+        const subtitle = `Block ${currentBlockIndex + 1} of ${activeBlocks.length}`;
+        if (status === 'running' && newTargetEndTime) {
+          NotificationService.showOngoing(blockLabel, newTargetEndTime, {
+            subtitle: `${subtitle} • Tap to open`,
+            totalDurationMs: newTotalDurationMs,
+            blockType: currentBlock?.type || 'focus',
+          });
+        } else if (status === 'paused') {
+          NotificationService.showPaused(blockLabel, newRemainingMs, {
+            subtitle,
+            totalDurationMs: newTotalDurationMs,
+            blockType: currentBlock?.type || 'focus',
+          });
+        }
+      }
+
+      persist();
     },
 
     reset: () => {

@@ -1,109 +1,135 @@
-import { Platform } from 'react-native';
+import { NativeEventEmitter, NativeModules, PermissionsAndroid, Platform } from 'react-native';
 
-let notifee: any = null;
-let AndroidImportance: any = null;
-let AndroidColor: any = null;
+export type BlockKind = 'focus' | 'short' | 'long';
 
-try {
-  const notifeeModule = require('@notifee/react-native');
-  notifee = notifeeModule.default || notifeeModule;
-  AndroidImportance = notifeeModule.AndroidImportance;
-  AndroidColor = notifeeModule.AndroidColor;
-} catch {
-  // Graceful fallback for development / web
+export interface OngoingNotificationOptions {
+  subtitle?: string;
+  totalDurationMs?: number;
+  blockType?: BlockKind;
 }
 
+export interface NotificationActionHandlers {
+  onPause?: () => void;
+  onResume?: () => void;
+  onExtend5m?: () => void;
+  onSkip?: () => void;
+  onTimerExpired?: () => void;
+}
+
+interface PomodoroNotificationNativeModule {
+  initChannels: () => void;
+  showOngoing: (
+    stageName: string,
+    subtitle: string,
+    targetEndTime: number,
+    totalDurationMs: number,
+    blockType: string
+  ) => void;
+  showPaused: (
+    stageName: string,
+    subtitle: string,
+    remainingMs: number,
+    totalDurationMs: number,
+    blockType: string
+  ) => void;
+  cancelOngoing: () => void;
+  showCompletionAlarm: (completedType: string, stageName: string, nextStageName: string) => void;
+  showCycleCompletionAlarm: (sessionCount: number) => void;
+}
+
+const nativeModule: PomodoroNotificationNativeModule | undefined =
+  Platform.OS === 'android' ? NativeModules.PomodoroNotification : undefined;
+
 export class NotificationService {
-  private static ongoingNotificationId = 'pomodoro_ongoing_session';
+  private static subscription: { remove: () => void } | null = null;
+  private static handlers: NotificationActionHandlers = {};
+
+  static setActionHandlers(handlers: NotificationActionHandlers) {
+    this.handlers = handlers;
+  }
 
   static async init() {
-    if (!notifee || Platform.OS !== 'android') return;
+    if (Platform.OS !== 'android' || !nativeModule) return;
 
     try {
-      await notifee.requestPermission();
+      if (Platform.Version >= 33) {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+        );
+        if (granted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.warn('POST_NOTIFICATIONS permission denied');
+        }
+      }
 
-      // Channel 1: Persistent countdown timer while running
-      await notifee.createChannel({
-        id: 'pomodoro_ongoing',
-        name: 'Ongoing Focus Timer',
-        importance: AndroidImportance.LOW,
-        vibration: false,
-      });
+      nativeModule.initChannels();
 
-      // Channel 2: Focus Session Finished -> Time to relax
-      await notifee.createChannel({
-        id: 'pomodoro_focus_complete',
-        name: 'Focus Finished (Break Time)',
-        importance: AndroidImportance.HIGH,
-        sound: 'default',
-        vibration: true,
-      });
-
-      // Channel 3: Break Finished -> Time to jump back in
-      await notifee.createChannel({
-        id: 'pomodoro_break_complete',
-        name: 'Break Finished (Focus Time)',
-        importance: AndroidImportance.HIGH,
-        sound: 'alarm',
-        vibration: true,
-      });
-
-      // Channel 4: All Sessions Finished -> Full celebration
-      await notifee.createChannel({
-        id: 'pomodoro_cycle_complete',
-        name: 'Full Cycle Celebration',
-        importance: AndroidImportance.HIGH,
-        sound: 'alarm',
-        vibration: true,
-      });
+      if (!this.subscription) {
+        const emitter = new NativeEventEmitter(NativeModules.PomodoroNotification);
+        this.subscription = emitter.addListener('PomodoroNotificationAction', (...args: unknown[]) => {
+          const action = typeof args[0] === 'string' ? args[0] : '';
+          switch (action) {
+            case 'ACTION_PAUSE':
+              this.handlers.onPause?.();
+              break;
+            case 'ACTION_RESUME':
+              this.handlers.onResume?.();
+              break;
+            case 'ACTION_EXTEND_5M':
+              this.handlers.onExtend5m?.();
+              break;
+            case 'ACTION_SKIP':
+              this.handlers.onSkip?.();
+              break;
+            case 'TIMER_EXPIRED_NATIVE':
+              this.handlers.onTimerExpired?.();
+              break;
+          }
+        });
+      }
     } catch (err) {
-      console.warn('Failed to init Notifee channels:', err);
+      console.warn('Failed to init Android live notifications:', err);
     }
   }
 
-  static async showOngoing(stageName: string, targetEndTime: number) {
-    if (!notifee || Platform.OS !== 'android') return;
+  static async showOngoing(
+    stageName: string,
+    targetEndTime: number,
+    options: OngoingNotificationOptions = {}
+  ) {
+    if (Platform.OS !== 'android' || !nativeModule) return;
 
     try {
-      await notifee.displayNotification({
-        id: this.ongoingNotificationId,
-        title: `Chrono: ${stageName}`,
-        body: 'Session in progress',
-        android: {
-          channelId: 'pomodoro_ongoing',
-          asForegroundService: true,
-          ongoing: true,
-          color: AndroidColor?.GREEN || '#00FFCC',
-          chronometer: {
-            base: targetEndTime,
-            down: true,
-          },
-          actions: [
-            {
-              title: '⏸ Pause',
-              pressAction: { id: 'ACTION_PAUSE' },
-            },
-            {
-              title: '➕ +5m',
-              pressAction: { id: 'ACTION_EXTEND_5M' },
-            },
-            {
-              title: '⏭ Skip',
-              pressAction: { id: 'ACTION_SKIP' },
-            },
-          ],
-        },
-      });
+      const subtitle = options.subtitle || 'Session in progress';
+      const totalDurationMs = options.totalDurationMs || Math.max(1000, targetEndTime - Date.now());
+      const blockType = options.blockType || 'focus';
+      nativeModule.showOngoing(stageName, subtitle, targetEndTime, totalDurationMs, blockType);
     } catch (err) {
       console.warn('Failed to display ongoing notification:', err);
     }
   }
 
-  static async cancelOngoing() {
-    if (!notifee || Platform.OS !== 'android') return;
+  static async showPaused(
+    stageName: string,
+    remainingMs: number,
+    options: OngoingNotificationOptions = {}
+  ) {
+    if (Platform.OS !== 'android' || !nativeModule) return;
 
     try {
-      await notifee.cancelNotification(this.ongoingNotificationId);
+      const subtitle = options.subtitle || 'Paused';
+      const totalDurationMs = options.totalDurationMs || Math.max(1000, remainingMs);
+      const blockType = options.blockType || 'focus';
+      nativeModule.showPaused(stageName, subtitle, remainingMs, totalDurationMs, blockType);
+    } catch (err) {
+      console.warn('Failed to display paused notification:', err);
+    }
+  }
+
+  static async cancelOngoing() {
+    if (Platform.OS !== 'android' || !nativeModule) return;
+
+    try {
+      nativeModule.cancelOngoing();
     } catch {}
   }
 
@@ -115,64 +141,20 @@ export class NotificationService {
     stageName: string,
     nextStageName: string
   ) {
-    if (!notifee || Platform.OS !== 'android') return;
+    if (Platform.OS !== 'android' || !nativeModule) return;
 
     try {
-      await this.cancelOngoing();
-
-      const isFocus = completedType === 'focus';
-      const channelId = isFocus ? 'pomodoro_focus_complete' : 'pomodoro_break_complete';
-      const title = isFocus ? `🌿 ${stageName} Finished!` : `⚡ ${stageName} Finished!`;
-      const body = isFocus
-        ? `Great job! Time for ${nextStageName.toLowerCase()}. Tap to begin.`
-        : `${nextStageName} is starting now. Let's get focused!`;
-
-      // Distinct vibration profiles:
-      // Focus: gentle rhythmic pulses
-      // Break: alert staccato pulses
-      const vibrationPattern = isFocus
-        ? [0, 450, 250, 450]
-        : [0, 200, 100, 200, 100, 300];
-
-      await notifee.displayNotification({
-        id: 'pomodoro_completed',
-        title,
-        body,
-        android: {
-          channelId,
-          importance: AndroidImportance.HIGH,
-          sound: isFocus ? 'default' : 'alarm',
-          vibrationPattern,
-          pressAction: {
-            id: 'default',
-          },
-        },
-      });
+      nativeModule.showCompletionAlarm(completedType, stageName, nextStageName);
     } catch (err) {
       console.warn('Failed to display completion alarm:', err);
     }
   }
 
   static async showCycleCompletionAlarm(sessionCount: number) {
-    if (!notifee || Platform.OS !== 'android') return;
+    if (Platform.OS !== 'android' || !nativeModule) return;
 
     try {
-      await this.cancelOngoing();
-
-      await notifee.displayNotification({
-        id: 'pomodoro_cycle_completed',
-        title: '🏆 Cycle Completed! Outstanding Work!',
-        body: `You finished all ${sessionCount} focus sessions and breaks. Outstanding focus!`,
-        android: {
-          channelId: 'pomodoro_cycle_complete',
-          importance: AndroidImportance.HIGH,
-          sound: 'alarm',
-          vibrationPattern: [0, 400, 200, 400, 200, 800],
-          pressAction: {
-            id: 'default',
-          },
-        },
-      });
+      nativeModule.showCycleCompletionAlarm(sessionCount);
     } catch (err) {
       console.warn('Failed to display cycle completion alarm:', err);
     }
