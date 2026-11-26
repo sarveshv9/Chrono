@@ -23,6 +23,7 @@ export default function App() {
   // Initialize notifications and rehydrate persisted plan & timer state
   useEffect(() => {
     NotificationService.setActionHandlers({
+      onStart: () => useTimerStore.getState().start(),
       onPause: () => useTimerStore.getState().pause(),
       onResume: () => useTimerStore.getState().resume(),
       onExtend5m: () => useTimerStore.getState().extendCurrentBlock(5),

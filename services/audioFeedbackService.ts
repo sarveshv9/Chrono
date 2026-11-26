@@ -1,3 +1,13 @@
+import { NativeModules, Platform } from 'react-native';
+
+interface ToneNote {
+  freq: number;
+  startSec: number;
+  durationSec: number;
+  volume: number;
+  wave?: 'sine' | 'triangle';
+}
+
 export class AudioFeedbackService {
   private static audioCtx: any = null;
 
@@ -22,23 +32,34 @@ export class AudioFeedbackService {
     return this.audioCtx;
   }
 
+  private static playWebNotes(notes: ToneNote[]) {
+    try {
+      const ctx = this.getAudioContext();
+      if (!ctx) return;
+      const now = ctx.currentTime;
+      for (const n of notes) {
+        this.playTone(ctx, n.freq, now + n.startSec, n.durationSec, n.volume, n.wave);
+      }
+    } catch {}
+  }
+
   /**
    * Play soothing, gentle release chime when a FOCUS session ends (entering break).
    * Mellow descending Zen tone (E5 -> A4 with warm sub-harmonic A3).
    */
   static playFocusCompleteSound() {
-    try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
+    if (Platform.OS === 'android') {
+      try {
+        NativeModules.PomodoroNotification?.playChime?.('focus_complete');
+      } catch {}
+      return;
+    }
 
-      const now = ctx.currentTime;
-      // Tone 1: E5 (659.25 Hz) - gentle bell initiation
-      this.playTone(ctx, 659.25, now, 0.45, 0.16);
-      // Tone 2: A4 (440.00 Hz) - peaceful resting resolution
-      this.playTone(ctx, 440.00, now + 0.18, 0.75, 0.18);
-      // Warm grounding undertone: A3 (220.00 Hz)
-      this.playTone(ctx, 220.00, now + 0.18, 0.75, 0.12, 'triangle');
-    } catch {}
+    this.playWebNotes([
+      { freq: 659.25, startSec: 0, durationSec: 0.45, volume: 0.25 },
+      { freq: 440.0, startSec: 0.18, durationSec: 0.75, volume: 0.28 },
+      { freq: 220.0, startSec: 0.18, durationSec: 0.75, volume: 0.18, wave: 'triangle' },
+    ]);
   }
 
   /**
@@ -46,18 +67,18 @@ export class AudioFeedbackService {
    * Bright ascending major triad (D5 -> F#5 -> A5) to invigorate and alert.
    */
   static playBreakCompleteSound() {
-    try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
+    if (Platform.OS === 'android') {
+      try {
+        NativeModules.PomodoroNotification?.playChime?.('break_complete');
+      } catch {}
+      return;
+    }
 
-      const now = ctx.currentTime;
-      // Note 1: D5 (587.33 Hz)
-      this.playTone(ctx, 587.33, now, 0.22, 0.16);
-      // Note 2: F#5 (739.99 Hz)
-      this.playTone(ctx, 739.99, now + 0.12, 0.25, 0.18);
-      // Note 3: A5 (880.00 Hz) - crisp alert top tone
-      this.playTone(ctx, 880.00, now + 0.24, 0.5, 0.22);
-    } catch {}
+    this.playWebNotes([
+      { freq: 587.33, startSec: 0, durationSec: 0.22, volume: 0.25 },
+      { freq: 739.99, startSec: 0.12, durationSec: 0.25, volume: 0.28 },
+      { freq: 880.0, startSec: 0.24, durationSec: 0.5, volume: 0.32 },
+    ]);
   }
 
   /**
@@ -75,22 +96,20 @@ export class AudioFeedbackService {
    * Play DISTINCT full-cycle completion celebratory fanfare (Ascending C Major chord with harmonic richness).
    */
   static playCycleCompleteSound() {
-    try {
-      const ctx = this.getAudioContext();
-      if (!ctx) return;
+    if (Platform.OS === 'android') {
+      try {
+        NativeModules.PomodoroNotification?.playChime?.('cycle_complete');
+      } catch {}
+      return;
+    }
 
-      const now = ctx.currentTime;
-      // Note 1: C5 (523.25 Hz)
-      this.playTone(ctx, 523.25, now, 0.3, 0.18);
-      // Note 2: E5 (659.25 Hz)
-      this.playTone(ctx, 659.25, now + 0.14, 0.3, 0.18);
-      // Note 3: G5 (783.99 Hz)
-      this.playTone(ctx, 783.99, now + 0.28, 0.35, 0.2);
-      // Note 4: C6 (1046.50 Hz) - Triumphant peak with sustained ring
-      this.playTone(ctx, 1046.5, now + 0.42, 0.8, 0.25);
-      // Harmonic octave base: C4 (261.63 Hz) warm support
-      this.playTone(ctx, 261.63, now + 0.42, 0.8, 0.15, 'triangle');
-    } catch {}
+    this.playWebNotes([
+      { freq: 523.25, startSec: 0, durationSec: 0.3, volume: 0.24 },
+      { freq: 659.25, startSec: 0.14, durationSec: 0.3, volume: 0.24 },
+      { freq: 783.99, startSec: 0.28, durationSec: 0.35, volume: 0.26 },
+      { freq: 1046.5, startSec: 0.42, durationSec: 0.8, volume: 0.32 },
+      { freq: 261.63, startSec: 0.42, durationSec: 0.8, volume: 0.2, wave: 'triangle' },
+    ]);
   }
 
   private static playTone(
@@ -108,7 +127,6 @@ export class AudioFeedbackService {
       osc.type = type;
       osc.frequency.setValueAtTime(freq, startTime);
 
-      // Smooth attack & decay
       gain.gain.setValueAtTime(0.001, startTime);
       gain.gain.exponentialRampToValueAtTime(peakVolume, startTime + 0.04);
       gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);

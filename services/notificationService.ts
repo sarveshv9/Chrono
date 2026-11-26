@@ -9,6 +9,7 @@ export interface OngoingNotificationOptions {
 }
 
 export interface NotificationActionHandlers {
+  onStart?: () => void;
   onPause?: () => void;
   onResume?: () => void;
   onExtend5m?: () => void;
@@ -18,6 +19,13 @@ export interface NotificationActionHandlers {
 
 interface PomodoroNotificationNativeModule {
   initChannels: () => void;
+  syncSystemSurfaces: (
+    status: string,
+    stageName: string,
+    targetEndTime: number,
+    remainingMs: number,
+    blockType: string
+  ) => void;
   showOngoing: (
     stageName: string,
     subtitle: string,
@@ -68,6 +76,9 @@ export class NotificationService {
         this.subscription = emitter.addListener('PomodoroNotificationAction', (...args: unknown[]) => {
           const action = typeof args[0] === 'string' ? args[0] : '';
           switch (action) {
+            case 'ACTION_START':
+              this.handlers.onStart?.();
+              break;
             case 'ACTION_PAUSE':
               this.handlers.onPause?.();
               break;
@@ -89,6 +100,25 @@ export class NotificationService {
     } catch (err) {
       console.warn('Failed to init Android live notifications:', err);
     }
+  }
+
+  static syncSystemSurfaces(
+    status: 'idle' | 'running' | 'paused' | 'completed',
+    stageName: string,
+    targetEndTime: number | null,
+    remainingMs: number,
+    blockType: BlockKind
+  ) {
+    if (Platform.OS !== 'android' || !nativeModule?.syncSystemSurfaces) return;
+    try {
+      nativeModule.syncSystemSurfaces(
+        status,
+        stageName,
+        targetEndTime || 0,
+        remainingMs,
+        blockType
+      );
+    } catch {}
   }
 
   static async showOngoing(

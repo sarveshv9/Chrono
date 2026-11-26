@@ -136,6 +136,15 @@ export const useTimerStore = create<TimerState>((set, get) => {
     } catch {}
   };
 
+  const syncSurfaces = () => {
+    const { activeBlocks, currentBlockIndex, status, targetEndTime, remainingMs } = get();
+    const block = activeBlocks[currentBlockIndex] || activeBlocks[0];
+    const blockType = block?.type || 'focus';
+    const stageName =
+      blockType === 'focus' ? 'Focus Session' : blockType === 'long' ? 'Long Break' : 'Break';
+    NotificationService.syncSystemSurfaces(status, stageName, targetEndTime, remainingMs, blockType);
+  };
+
   const initialBlocks = buildSequence(DEFAULT_PLAN);
   const firstBlockDuration = (initialBlocks[0]?.minutes || 25) * 60 * 1000;
 
@@ -193,6 +202,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
             remainingMs,
             totalDurationMs: parsed.totalDurationMs || blockDurationMs,
           });
+          syncSurfaces();
         }
       } catch {}
     },
@@ -292,6 +302,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
           blockType: currentBlock?.type || 'focus',
         });
       }
+      syncSurfaces();
       persist();
     },
 
@@ -319,6 +330,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
       } else {
         NotificationService.cancelOngoing();
       }
+      syncSurfaces();
       persist();
     },
 
@@ -360,6 +372,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
         }
       }
 
+      syncSurfaces();
       persist();
     },
 
@@ -378,6 +391,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
 
       HapticService.buttonPress();
       NotificationService.cancelOngoing();
+      syncSurfaces();
       persist();
     },
 
@@ -404,6 +418,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
           totalDurationMs: 0,
         });
 
+        syncSurfaces();
         persist();
         return;
       }
@@ -428,6 +443,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
         NotificationService.showCompletionAlarm(currentBlock?.type || 'focus', currentLabel, nextLabel);
       }
 
+      syncSurfaces();
       persist();
 
       if (plan.autoStartNext) {
@@ -466,6 +482,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
             totalDurationMs: 0,
           });
 
+          syncSurfaces();
           persist();
         } else {
           HapticService.stageComplete();
@@ -488,6 +505,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
             totalDurationMs: durationMs,
           });
 
+          syncSurfaces();
           persist();
 
           if (plan.autoStartNext) {

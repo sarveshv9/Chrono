@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": false,
     "android": {
       "package": "com.chrono.pomodoro",
       "adaptiveIcon": {

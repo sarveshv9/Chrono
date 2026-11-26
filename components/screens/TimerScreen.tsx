@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
   View,
   Text,
   StyleSheet,
@@ -10,6 +11,16 @@ import {
   Platform,
   useWindowDimensions,
 } from 'react-native';
+
+let KeepAwake: {
+  activateKeepAwakeAsync?: (tag?: string) => Promise<void>;
+  deactivateKeepAwake?: (tag?: string) => void;
+} | null = null;
+try {
+  KeepAwake = require('expo-keep-awake');
+} catch {
+  KeepAwake = null;
+}
 import { useTimerStore } from '@/store/useTimerStore';
 import { ThemeColors } from '@/theme/tokens';
 import Svg, { Path, Circle, Rect, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -109,6 +120,58 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
   const isPaused = status === 'paused';
   const isCompleted = status === 'completed';
 
+  // Keep screen awake while timer is running (Desk-Clock mode)
+  useEffect(() => {
+    const tag = 'chrono-timer';
+    if (isRunning) {
+      KeepAwake?.activateKeepAwakeAsync?.(tag)?.catch(() => {});
+    } else {
+      try {
+        KeepAwake?.deactivateKeepAwake?.(tag);
+      } catch {}
+    }
+    return () => {
+      try {
+        KeepAwake?.deactivateKeepAwake?.(tag);
+      } catch {}
+    };
+  }, [isRunning]);
+
+  // Zen Auto-Fade: dim secondary chrome after 4s of inactivity while running
+  const chromeOpacity = useRef(new Animated.Value(1)).current;
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const wakeChrome = useCallback(() => {
+    if (fadeTimerRef.current) {
+      clearTimeout(fadeTimerRef.current);
+      fadeTimerRef.current = null;
+    }
+    Animated.timing(chromeOpacity, {
+      toValue: 1,
+      duration: 220,
+      useNativeDriver: true,
+    }).start();
+
+    if (isRunning) {
+      fadeTimerRef.current = setTimeout(() => {
+        Animated.timing(chromeOpacity, {
+          toValue: 0.18,
+          duration: 600,
+          useNativeDriver: true,
+        }).start();
+      }, 4000);
+    }
+  }, [chromeOpacity, isRunning]);
+
+  useEffect(() => {
+    wakeChrome();
+    return () => {
+      if (fadeTimerRef.current) {
+        clearTimeout(fadeTimerRef.current);
+      }
+    };
+  }, [wakeChrome]);
+
   // Calculate session number in focus blocks
   const focusBlocks = activeBlocks.filter((b) => b.type === 'focus');
   const currentFocusIndex = activeBlocks
@@ -171,9 +234,9 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} onTouchStart={wakeChrome}>
       {/* Top Header Rail: Brand & Settings Icon */}
-      <View style={styles.header}>
+      <Animated.View style={[styles.header, { opacity: chromeOpacity }]}>
         <Text style={[styles.brandTitle, { color: colors.textPrimary }]}>CHRONO</Text>
         <TouchableOpacity
           style={[styles.settingsBtn, { backgroundColor: colors.surfaceElevated || colors.surface, borderColor: colors.surfaceBorder }]}
@@ -187,7 +250,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
         >
           <SettingsIcon size={19} color={colors.textPrimary} />
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {/* Center Clock Canvas */}
       <View
@@ -286,7 +349,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
       </View>
 
       {/* Stacked Action Pod: Full-Width Hero Pill + Dual Reset/Skip Pills */}
-      <View style={styles.actionPod}>
+      <Animated.View style={[styles.actionPod, { opacity: chromeOpacity }]}>
         {/* Hero Capsule Start/Pause/New Cycle Button */}
         <TouchableOpacity
           style={[
@@ -360,7 +423,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
             <Text style={[styles.secondaryPillText, { color: colors.textPrimary }]}>Skip</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
 
       {/* Confirmation Modal */}
       <ConfirmActionModal
