@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ThemePreset } from '@/theme/tokens';
+import type { ThemePreset } from '@/theme/tokens';
 import { HapticService } from '@/services/hapticsService';
 import { NotificationService } from '@/services/notificationService';
 import { AudioFeedbackService } from '@/services/audioFeedbackService';
@@ -51,7 +51,7 @@ export const DEFAULT_PLAN: PomodoroPlan = {
     { id: '8', type: 'short', minutes: 5 },
   ],
   visualClockStyle: 'ring',
-  themePreset: 'system',
+  themePreset: 'dark',
 };
 
 // Pure sequence builder - Single Source of Truth
@@ -126,6 +126,15 @@ const STORAGE_KEY = '@chrono_pomodoro_plan_v3';
 const LEGACY_STORAGE_KEY = '@chronocraft_pomodoro_plan_v3';
 
 export const useTimerStore = create<TimerState>((set, get) => {
+  let autoStartTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  const clearAutoStart = () => {
+    if (autoStartTimeout) {
+      clearTimeout(autoStartTimeout);
+      autoStartTimeout = null;
+    }
+  };
+
   const persist = async () => {
     try {
       const { plan, currentBlockIndex, status, targetEndTime, remainingMs, totalDurationMs } = get();
@@ -169,7 +178,11 @@ export const useTimerStore = create<TimerState>((set, get) => {
         }
         if (raw) {
           const parsed = JSON.parse(raw);
-          const plan: PomodoroPlan = { ...DEFAULT_PLAN, ...(parsed.plan || {}) };
+          const rawPlan = { ...DEFAULT_PLAN, ...(parsed.plan || {}) };
+          const savedTheme = (parsed.plan?.themePreset as string | undefined);
+          const themePreset: ThemePreset =
+            savedTheme === 'light' || savedTheme === 'papyrus' ? 'light' : 'dark';
+          const plan: PomodoroPlan = { ...rawPlan, themePreset };
           const blocks = buildSequence(plan);
           const blockIndex = Math.min(parsed.currentBlockIndex || 0, Math.max(0, blocks.length - 1));
           const currentBlock = blocks[blockIndex] || blocks[0];
@@ -186,10 +199,34 @@ export const useTimerStore = create<TimerState>((set, get) => {
               status = 'running';
               remainingMs = targetEndTime - now;
             } else {
-              // Completed while closed
-              status = 'idle';
-              remainingMs = blockDurationMs;
-              targetEndTime = null;
+              // Completed while closed: advance to next block or mark cycle completed
+              const nextIndex = blockIndex + 1;
+              if (nextIndex >= blocks.length) {
+                set({
+                  plan,
+                  activeBlocks: blocks,
+                  currentBlockIndex: blockIndex,
+                  status: 'completed',
+                  targetEndTime: null,
+                  remainingMs: 0,
+                  totalDurationMs: 0,
+                });
+              } else {
+                const nextBlock = blocks[nextIndex] || blocks[0];
+                const nextDurationMs = (nextBlock?.minutes || 25) * 60 * 1000;
+                set({
+                  plan,
+                  activeBlocks: blocks,
+                  currentBlockIndex: nextIndex,
+                  status: 'idle',
+                  targetEndTime: null,
+                  remainingMs: nextDurationMs,
+                  totalDurationMs: nextDurationMs,
+                });
+              }
+              syncSurfaces();
+              persist();
+              return;
             }
           }
 
@@ -265,6 +302,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
     },
 
     resetPlanToDefaults: () => {
+      clearAutoStart();
       const newBlocks = buildSequence(DEFAULT_PLAN);
       const durationMs = (newBlocks[0]?.minutes || 25) * 60 * 1000;
       set({
@@ -281,6 +319,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
     },
 
     start: async () => {
+      clearAutoStart();
       const { remainingMs, totalDurationMs, activeBlocks, currentBlockIndex, plan } = get();
       const currentBlock = activeBlocks[currentBlockIndex] || activeBlocks[0];
       const now = Date.now();
@@ -307,6 +346,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
     },
 
     pause: () => {
+      clearAutoStart();
       const { targetEndTime, totalDurationMs, activeBlocks, currentBlockIndex, plan } = get();
       if (!targetEndTime) return;
 
@@ -377,6 +417,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
     },
 
     reset: () => {
+      clearAutoStart();
       const { activeBlocks } = get();
       const firstBlock = activeBlocks[0];
       const durationMs = (firstBlock?.minutes || 25) * 60 * 1000;
@@ -396,6 +437,7 @@ export const useTimerStore = create<TimerState>((set, get) => {
     },
 
     skip: () => {
+      clearAutoStart();
       const { activeBlocks, currentBlockIndex, plan } = get();
       NotificationService.cancelOngoing();
 
@@ -447,7 +489,13 @@ export const useTimerStore = create<TimerState>((set, get) => {
       persist();
 
       if (plan.autoStartNext) {
-        setTimeout(() => get().start(), 500);
+        clearAutoStart();
+        autoStartTimeout = setTimeout(() => {
+          autoStartTimeout = null;
+          if (get().status === 'idle') {
+            get().start();
+          }
+        }, 500);
       }
     },
 
@@ -509,7 +557,13 @@ export const useTimerStore = create<TimerState>((set, get) => {
           persist();
 
           if (plan.autoStartNext) {
-            setTimeout(() => get().start(), 600);
+            clearAutoStart();
+            autoStartTimeout = setTimeout(() => {
+              autoStartTimeout = null;
+              if (get().status === 'idle') {
+                get().start();
+              }
+            }, 600);
           }
         }
       } else {

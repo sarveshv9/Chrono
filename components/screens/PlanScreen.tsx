@@ -19,7 +19,7 @@ import {
   BlockType,
   ClockStyle,
 } from '@/store/useTimerStore';
-import { ThemeColors, ThemePreset, THEME_DEFINITIONS } from '@/theme/tokens';
+import { ThemeColors } from '@/theme/tokens';
 import { HapticService } from '@/services/hapticsService';
 import { ReorderList } from '@/components/ui/reorder-list';
 
@@ -65,26 +65,26 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
       if (customInputVal.toLowerCase() === 'unlimited') {
         updatePlan({ sessionCount: 'unlimited', customSequenceEnabled: false });
       } else if (!isNaN(num) && num > 0) {
-        updatePlan({ sessionCount: num, customSequenceEnabled: false });
+        updatePlan({ sessionCount: Math.min(50, num), customSequenceEnabled: false });
       }
     } else if (activePicker === 'focusTime') {
       if (!isNaN(num) && num > 0) {
-        updatePlan({ focusMinutes: num, customSequenceEnabled: false });
+        updatePlan({ focusMinutes: Math.min(180, num), customSequenceEnabled: false });
       }
     } else if (activePicker === 'breakCount') {
       if (!isNaN(num) && num >= 0) {
-        updatePlan({ breakCount: num, customSequenceEnabled: false });
+        updatePlan({ breakCount: Math.min(50, num), customSequenceEnabled: false });
       }
     } else if (activePicker === 'breakTime') {
       if (!isNaN(num) && num > 0) {
-        updatePlan({ shortBreakMinutes: num, customSequenceEnabled: false });
+        updatePlan({ shortBreakMinutes: Math.min(180, num), customSequenceEnabled: false });
       }
     } else if (activePicker.startsWith('block_')) {
       const idx = parseInt(activePicker.replace('block_', ''), 10);
       if (!isNaN(idx) && !isNaN(num) && num > 0) {
         const updated = [...activeSequence];
         if (updated[idx]) {
-          updated[idx] = { ...updated[idx], minutes: num };
+          updated[idx] = { ...updated[idx], minutes: Math.min(180, num) };
           updatePlan({ customSequenceEnabled: true, customSequence: updated });
         }
       }
@@ -415,21 +415,19 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
 
           <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
 
-          <TouchableOpacity
-            style={styles.cardRow}
-            onPress={() => setActivePicker('theme')}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Theme</Text>
-            <View style={styles.valueRow}>
-              <Text style={[styles.rowValue, { color: colors.textPrimary }]}>
-                {plan.themePreset === 'system'
-                  ? 'Follow System'
-                  : THEME_DEFINITIONS[plan.themePreset]?.name || plan.themePreset.toUpperCase()}
-              </Text>
-              <Text style={[styles.chevron, { color: colors.textMuted }]}>›</Text>
-            </View>
-          </TouchableOpacity>
+          <View style={styles.cardRow}>
+            <Text style={[styles.rowLabel, { color: colors.textPrimary }]}>Dark mode</Text>
+            <Switch
+              value={plan.themePreset === 'dark'}
+              onValueChange={(isDark) => {
+                HapticService.buttonPress();
+                updatePlan({ themePreset: isDark ? 'dark' : 'light' });
+              }}
+              trackColor={{ false: colors.surfaceBorder, true: colors.textPrimary }}
+              thumbColor={Platform.OS === 'android' ? colors.background : undefined}
+              accessibilityLabel="Toggle dark mode"
+            />
+          </View>
 
           <View style={[styles.divider, { backgroundColor: colors.surfaceBorder }]} />
 
@@ -479,40 +477,12 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
                 {activePicker === 'breakCount' && 'Number of Breaks'}
                 {activePicker === 'breakTime' && 'Break Duration'}
                 {activePicker?.startsWith('block_') && 'Block Duration'}
-                {activePicker === 'theme' && 'Theme'}
                 {activePicker === 'clockStyle' && 'Clock Style'}
               </Text>
               <TouchableOpacity onPress={() => setActivePicker(null)} style={styles.dialogCloseBtn}>
                 <Text style={{ color: colors.textMuted, fontSize: 16, fontWeight: '700' }}>✕</Text>
               </TouchableOpacity>
             </View>
-
-            {/* THEME PICKER */}
-            {activePicker === 'theme' && (
-              <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
-                {([
-                  { id: 'system', label: 'Follow System' },
-                  { id: 'oled', label: 'OLED Obsidian' },
-                  { id: 'papyrus', label: 'Warm Papyrus' },
-                  { id: 'neon', label: 'Cyber Neon' },
-                  { id: 'matcha', label: 'Matcha Calm' },
-                ] as { id: ThemePreset; label: string }[]).map((t) => (
-                  <TouchableOpacity
-                    key={t.id}
-                    style={styles.pickerOption}
-                    onPress={() => {
-                      updatePlan({ themePreset: t.id });
-                      setActivePicker(null);
-                    }}
-                  >
-                    <Text style={[styles.pickerOptionText, { color: colors.textPrimary }]}>{t.label}</Text>
-                    {plan.themePreset === t.id && (
-                      <Text style={{ color: colors.textPrimary, fontWeight: '700' }}>✓</Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            )}
 
             {/* CLOCK STYLE PICKER */}
             {activePicker === 'clockStyle' && (
@@ -541,7 +511,7 @@ export const PlanScreen: React.FC<PlanScreenProps> = ({ colors }) => {
             )}
 
             {/* NUMERICAL PICKER */}
-            {activePicker !== null && activePicker !== 'theme' && activePicker !== 'clockStyle' && (
+            {activePicker !== null && activePicker !== 'clockStyle' && (
               <View>
                 <View style={styles.inputRow}>
                   <View style={[styles.inputBox, { backgroundColor: colors.background, borderColor: colors.surfaceBorder }]}>

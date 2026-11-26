@@ -9,7 +9,7 @@ interface DigitalClockProps {
   stageColor?: string;
 }
 
-export const DigitalClock: React.FC<DigitalClockProps> = ({
+export const DigitalClock: React.FC<DigitalClockProps> = React.memo(({
   remainingMs,
   totalDurationMs,
   colors,
@@ -25,7 +25,7 @@ export const DigitalClock: React.FC<DigitalClockProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.digits, { color: colors.textPrimary }]}>
+      <Text maxFontSizeMultiplier={1.15} style={[styles.digits, { color: colors.textPrimary }]}>
         {timeFormatted}
       </Text>
 
@@ -40,7 +40,7 @@ export const DigitalClock: React.FC<DigitalClockProps> = ({
       </View>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

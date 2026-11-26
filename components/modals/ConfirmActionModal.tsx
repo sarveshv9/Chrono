@@ -27,6 +27,13 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View style={styles.backdrop}>
+        <TouchableOpacity
+          style={StyleSheet.absoluteFill}
+          activeOpacity={1}
+          onPress={onCancel}
+          accessibilityRole="button"
+          accessibilityLabel="Dismiss dialog"
+        />
         <View style={[styles.dialog, { backgroundColor: colors.surface, borderColor: colors.surfaceBorder }]}>
           <Text style={[styles.title, { color: colors.textPrimary }]}>{title}</Text>
           <Text style={[styles.message, { color: colors.textSecondary }]}>{message}</Text>
@@ -38,6 +45,8 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
                 HapticService.buttonPress();
                 onCancel();
               }}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
             >
               <Text style={[styles.btnText, { color: colors.textPrimary }]}>Cancel</Text>
             </TouchableOpacity>
@@ -51,6 +60,8 @@ export const ConfirmActionModal: React.FC<ConfirmActionModalProps> = ({
                 HapticService.buttonPress();
                 onConfirm();
               }}
+              accessibilityRole="button"
+              accessibilityLabel={confirmText}
             >
               <Text style={[styles.btnText, { color: '#FFFFFF', fontWeight: '700' }]}>
                 {confirmText}

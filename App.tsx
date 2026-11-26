@@ -1,5 +1,14 @@
 import React, { useEffect } from 'react';
-import { StyleSheet, AppState, AppStateStatus, SafeAreaView, View, useColorScheme, BackHandler } from 'react-native';
+import {
+  StyleSheet,
+  AppState,
+  AppStateStatus,
+  SafeAreaView,
+  View,
+  BackHandler,
+  Platform,
+  StatusBar as RNStatusBar,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useTimerStore } from '@/store/useTimerStore';
 import { NotificationService } from '@/services/notificationService';
@@ -16,8 +25,7 @@ export default function App() {
   const setCurrentScreen = useTimerStore((state) => state.setCurrentScreen);
   const themePreset = useTimerStore((state) => state.plan.themePreset);
 
-  const systemColorScheme = useColorScheme();
-  const theme = resolveThemeColors(themePreset, systemColorScheme);
+  const theme = resolveThemeColors(themePreset);
   const colors = theme.colors;
 
   // Initialize notifications and rehydrate persisted plan & timer state
@@ -34,15 +42,28 @@ export default function App() {
     loadPersistedState();
   }, [loadPersistedState]);
 
-  // Foreground tick timer loop
+  // Foreground tick timer loop aligned to second boundaries
   useEffect(() => {
     if (status !== 'running') return;
 
-    const interval = setInterval(() => {
-      tick();
-    }, 1000);
+    let timerId: ReturnType<typeof setTimeout> | null = null;
+    const scheduleNext = () => {
+      const target = useTimerStore.getState().targetEndTime;
+      const msLeft = target ? Math.max(0, target - Date.now()) : 1000;
+      const delay = msLeft <= 1000 ? Math.max(16, msLeft + 10) : (msLeft % 1000) + 15;
 
-    return () => clearInterval(interval);
+      timerId = setTimeout(() => {
+        tick();
+        if (useTimerStore.getState().status === 'running') {
+          scheduleNext();
+        }
+      }, delay);
+    };
+
+    scheduleNext();
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
   }, [status, tick]);
 
   // Zero-drift AppState reconciler
@@ -89,6 +110,7 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
+    paddingTop: Platform.OS === 'android' ? (RNStatusBar.currentHeight ?? 0) : 0,
   },
   content: {
     flex: 1,

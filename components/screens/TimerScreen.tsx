@@ -79,21 +79,19 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
   const { width, height } = useWindowDimensions();
   const clockSize = Math.min(Math.round(width * 0.82), Math.round(height * 0.40), 324);
 
-  const {
-    status,
-    activeBlocks,
-    currentBlockIndex,
-    remainingMs,
-    totalDurationMs,
-    plan,
-    start,
-    pause,
-    resume,
-    reset,
-    skip,
-    setCurrentBlockMinutes,
-    setCurrentScreen,
-  } = useTimerStore();
+  const status = useTimerStore((state) => state.status);
+  const activeBlocks = useTimerStore((state) => state.activeBlocks);
+  const currentBlockIndex = useTimerStore((state) => state.currentBlockIndex);
+  const remainingMs = useTimerStore((state) => state.remainingMs);
+  const totalDurationMs = useTimerStore((state) => state.totalDurationMs);
+  const plan = useTimerStore((state) => state.plan);
+  const start = useTimerStore((state) => state.start);
+  const pause = useTimerStore((state) => state.pause);
+  const resume = useTimerStore((state) => state.resume);
+  const reset = useTimerStore((state) => state.reset);
+  const skip = useTimerStore((state) => state.skip);
+  const setCurrentBlockMinutes = useTimerStore((state) => state.setCurrentBlockMinutes);
+  const setCurrentScreen = useTimerStore((state) => state.setCurrentScreen);
 
   const [confirmModal, setConfirmModal] = useState<{
     visible: boolean;
@@ -301,7 +299,9 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
             </Text>
             <View style={[styles.completedSummaryPill, { backgroundColor: colors.surfaceElevated, borderColor: colors.surfaceBorder }]}>
               <Text style={[styles.completedSummaryText, { color: colors.accentShortBreak }]}>
-                ✓ {plan.sessionCount === 'unlimited' ? 'Loop Finished' : `${plan.focusMinutes * focusBlocks.length}m focused`}
+                ✓ {plan.sessionCount === 'unlimited' && !plan.customSequenceEnabled
+                  ? 'Loop Finished'
+                  : `${focusBlocks.reduce((sum, b) => sum + b.minutes, 0)}m focused`}
               </Text>
             </View>
           </View>
@@ -324,6 +324,7 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
                 colors={colors}
                 stageColor={stageAccentColor}
                 size={clockSize}
+                isRunning={isRunning}
               />
             )}
             {plan.visualClockStyle === 'sandglass' && (
@@ -335,13 +336,15 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
               />
             )}
             {plan.visualClockStyle === 'flip' && (
-              <FlipClock remainingMs={remainingMs} colors={colors} />
+              <FlipClock remainingMs={remainingMs} colors={colors} size={clockSize} />
             )}
             {plan.visualClockStyle === 'breathing' && (
               <ZenBreathingClock
                 remainingMs={remainingMs}
                 colors={colors}
                 stageColor={stageAccentColor}
+                size={clockSize}
+                isRunning={isRunning}
               />
             )}
           </TouchableOpacity>
@@ -461,7 +464,15 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
               <Text style={[styles.dialogTitle, { color: colors.textPrimary }]}>
                 Set Duration
               </Text>
-              <TouchableOpacity onPress={() => setDurationModalOpen(false)} style={styles.dialogCloseBtn}>
+              <TouchableOpacity
+                onPress={() => {
+                  HapticService.buttonPress();
+                  setDurationModalOpen(false);
+                }}
+                style={styles.dialogCloseBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Close duration dialog"
+              >
                 <Text style={{ color: colors.textMuted, fontSize: 18, fontWeight: '700' }}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -477,13 +488,14 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
                   placeholder="25"
                   placeholderTextColor={colors.textMuted}
                   autoFocus={true}
-                  maxLength={4}
+                  maxLength={3}
                   textAlign="center"
                   returnKeyType="done"
                   onSubmitEditing={() => {
+                    HapticService.buttonPress();
                     const num = parseInt(durationInputVal.trim(), 10);
                     if (!isNaN(num) && num > 0) {
-                      setCurrentBlockMinutes(num);
+                      setCurrentBlockMinutes(Math.min(180, num));
                     }
                     setDurationModalOpen(false);
                   }}
@@ -493,12 +505,15 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
               <TouchableOpacity
                 style={[styles.dialogApplyBtn, { backgroundColor: stageAccentColor }]}
                 onPress={() => {
+                  HapticService.buttonPress();
                   const num = parseInt(durationInputVal.trim(), 10);
                   if (!isNaN(num) && num > 0) {
-                    setCurrentBlockMinutes(num);
+                    setCurrentBlockMinutes(Math.min(180, num));
                   }
                   setDurationModalOpen(false);
                 }}
+                accessibilityRole="button"
+                accessibilityLabel="Apply duration"
               >
                 <Text style={styles.dialogApplyText}>Set</Text>
               </TouchableOpacity>
@@ -517,9 +532,12 @@ export const TimerScreen: React.FC<TimerScreenProps> = ({ colors }) => {
                     },
                   ]}
                   onPress={() => {
+                    HapticService.buttonPress();
                     setCurrentBlockMinutes(preset);
                     setDurationModalOpen(false);
                   }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Set ${preset} minutes`}
                 >
                   <Text
                     style={[
